@@ -24,7 +24,6 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
-
 import com.mixpanel.android.R;
 import com.mixpanel.android.mpmetrics.InAppButton;
 import com.mixpanel.android.mpmetrics.InAppNotification;
@@ -34,11 +33,9 @@ import com.mixpanel.android.mpmetrics.TakeoverInAppNotification;
 import com.mixpanel.android.mpmetrics.UpdateDisplayState;
 import com.mixpanel.android.util.MPLog;
 import com.mixpanel.android.util.ViewUtils;
-
+import java.util.ArrayList;
 import org.json.JSONException;
 import org.json.JSONObject;
-
-import java.util.ArrayList;
 
 /**
  * Activity used internally by Mixpanel to display inApp takeover notifications.
@@ -156,8 +153,7 @@ public class TakeoverInAppActivity extends Activity {
                 @Override
                 public boolean onTouch(View v, MotionEvent event) {
                     if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                        int highLight = highlightColor;
-                        buttonBackground.setColor(highLight);
+                        buttonBackground.setColor(highlightColor);
                     } else {
                         buttonBackground.setColor(inAppButtonModel.getBackgroundColor());
                     }
@@ -169,6 +165,7 @@ public class TakeoverInAppActivity extends Activity {
             buttonBackground.setCornerRadius((int) ViewUtils.dpToPx(5, this));
 
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN) {
+                //noinspection deprecation
                 inAppButton.setBackgroundDrawable(buttonBackground);
             } else {
                 inAppButton.setBackground(buttonBackground);

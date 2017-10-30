@@ -4,7 +4,6 @@ import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.Application;
 import android.app.FragmentTransaction;
-import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -14,7 +13,6 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
-
 import com.mixpanel.android.R;
 import com.mixpanel.android.takeoverinapp.TakeoverInAppActivity;
 import com.mixpanel.android.util.ActivityImageUtils;
@@ -22,11 +20,6 @@ import com.mixpanel.android.util.MPLog;
 import com.mixpanel.android.viewcrawler.TrackingDebug;
 import com.mixpanel.android.viewcrawler.UpdatesFromMixpanel;
 import com.mixpanel.android.viewcrawler.ViewCrawler;
-
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.text.DateFormat;
@@ -45,6 +38,9 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.locks.ReentrantLock;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 
 /**
@@ -110,11 +106,13 @@ import java.util.concurrent.locks.ReentrantLock;
  * @see <a href="https://mixpanel.com/docs/people-analytics/android-push">getting started with push notifications for Android</a>
  * @see <a href="https://github.com/mixpanel/sample-android-mixpanel-integration">The Mixpanel Android sample application</a>
  */
+@SuppressWarnings("WeakerAccess")
 public class MixpanelAPI {
     /**
      * String version of the library.
      */
     public static final String VERSION = MPConfig.VERSION;
+    static int sSequenceNumber = 0;
 
     /**
      * Declare a string-valued tweak, and return a reference you can use to read the value of the tweak.
@@ -228,7 +226,7 @@ public class MixpanelAPI {
      * You shouldn't instantiate MixpanelAPI objects directly.
      * Use MixpanelAPI.getInstance to get an instance.
      */
-    MixpanelAPI(Context context, Future<SharedPreferences> referrerPreferences, String token) {
+    MixpanelAPI(final Context context, final Future<SharedPreferences> referrerPreferences, final String token) {
         this(context, referrerPreferences, token, MPConfig.getInstance(context));
     }
 
@@ -236,24 +234,25 @@ public class MixpanelAPI {
      * You shouldn't instantiate MixpanelAPI objects directly.
      * Use MixpanelAPI.getInstance to get an instance.
      */
-    MixpanelAPI(Context context, Future<SharedPreferences> referrerPreferences, String token, MPConfig config) {
+    MixpanelAPI(final Context context, final Future<SharedPreferences> referrerPreferences,
+            final String token, final MPConfig config) {
         mContext = context;
         mToken = token;
         mPeople = new PeopleImpl();
         mConfig = config;
 
-        final Map<String, String> deviceInfo = new HashMap<String, String>();
-        deviceInfo.put("$android_lib_version", MPConfig.VERSION);
-        deviceInfo.put("$android_os", "Android");
-        deviceInfo.put("$android_os_version", Build.VERSION.RELEASE == null ? "UNKNOWN" : Build.VERSION.RELEASE);
-        deviceInfo.put("$android_manufacturer", Build.MANUFACTURER == null ? "UNKNOWN" : Build.MANUFACTURER);
-        deviceInfo.put("$android_brand", Build.BRAND == null ? "UNKNOWN" : Build.BRAND);
-        deviceInfo.put("$android_model", Build.MODEL == null ? "UNKNOWN" : Build.MODEL);
+        final Map<String, String> deviceInfo = new HashMap<>();
+        deviceInfo.put("android_lib_version", MPConfig.VERSION);
+        deviceInfo.put("android_os", "Android");
+        deviceInfo.put("android_os_version", Build.VERSION.RELEASE == null ? "UNKNOWN" : Build.VERSION.RELEASE);
+        deviceInfo.put("android_manufacturer", Build.MANUFACTURER == null ? "UNKNOWN" : Build.MANUFACTURER);
+        deviceInfo.put("android_brand", Build.BRAND == null ? "UNKNOWN" : Build.BRAND);
+        deviceInfo.put("android_model", Build.MODEL == null ? "UNKNOWN" : Build.MODEL);
         try {
             final PackageManager manager = mContext.getPackageManager();
             final PackageInfo info = manager.getPackageInfo(mContext.getPackageName(), 0);
-            deviceInfo.put("$android_app_version", info.versionName);
-            deviceInfo.put("$android_app_version_code", Integer.toString(info.versionCode));
+            deviceInfo.put("android_app_version", info.versionName);
+            deviceInfo.put("android_app_version_code", Integer.toString(info.versionCode));
         } catch (final PackageManager.NameNotFoundException e) {
             MPLog.e(LOGTAG, "Exception getting app version name", e);
         }
@@ -289,15 +288,12 @@ public class MixpanelAPI {
         registerMixpanelActivityLifecycleCallbacks();
 
         if (sendAppOpen()) {
-            track("$app_open", null);
+            track("app_open", null);
         }
 
         if (!mPersistentIdentity.isFirstIntegration(mToken)) {
             try {
                 final JSONObject messageProps = new JSONObject();
-
-                messageProps.put("mp_lib", "Android");
-                messageProps.put("lib", "Android");
                 messageProps.put("distinct_id", token);
 
                 final AnalyticsMessages.EventDescription eventDescription =
@@ -306,16 +302,15 @@ public class MixpanelAPI {
                 mMessages.postToServer(new AnalyticsMessages.FlushDescription("85053bf24bba75239b16a601d9387e17", false));
 
                 mPersistentIdentity.setIsIntegrated(mToken);
-            } catch (JSONException e) {
-            }
+            } catch (JSONException ignored) { }
         }
 
-        if (mPersistentIdentity.isNewVersion(deviceInfo.get("$android_app_version_code"))) {
+        if (mPersistentIdentity.isNewVersion(deviceInfo.get("android_app_version_code"))) {
             try {
                 final JSONObject messageProps = new JSONObject();
-                messageProps.put(AutomaticEvents.VERSION_UPDATED, deviceInfo.get("$android_app_version"));
+                messageProps.put(AutomaticEvents.VERSION_UPDATED, deviceInfo.get("android_app_version"));
                 track(AutomaticEvents.APP_UPDATED, messageProps, true);
-            } catch (JSONException e) {}
+            } catch (JSONException ignored) { }
 
         }
 
@@ -363,7 +358,7 @@ public class MixpanelAPI {
 
             Map <Context, MixpanelAPI> instances = sInstanceMap.get(token);
             if (null == instances) {
-                instances = new HashMap<Context, MixpanelAPI>();
+                instances = new HashMap<>();
                 sInstanceMap.put(token, instances);
             }
 
@@ -446,7 +441,7 @@ public class MixpanelAPI {
      * application.
      *
      * @param distinctId a string uniquely identifying this user. Events sent to
-     *     Mixpanel using the same disinct_id will be considered associated with the
+     *     Mixpanel using the same distinct_id will be considered associated with the
      *     same visitor/customer for retention and funnel reporting, so be sure that the given
      *     value is globally unique for each individual user you intend to track.
      *
@@ -797,6 +792,7 @@ public class MixpanelAPI {
      *
      * @see MixpanelAPI
      */
+    @SuppressWarnings({ "UnnecessaryInterfaceModifier", "JavaDoc" })
     public interface People {
         /**
          * Associate future calls to {@link #set(JSONObject)}, {@link #increment(Map)},
@@ -969,47 +965,18 @@ public class MixpanelAPI {
         public void deleteUser();
 
         /**
-         * Enable end-to-end Google Cloud Messaging (GCM) from Mixpanel.
+         * This method is a no-op, kept for compatibility purposes.
          *
-         * <p>Calling this method will allow the Mixpanel libraries to handle GCM user
-         * registration, and enable Mixpanel to show alerts when GCM messages arrive.
-         *
-         * <p>To use {@link People#initPushHandling}, you will need to add the following to your application manifest:
-         *
-         * <pre>
+         * To enable verbose logging about communication with Mixpanel, add
          * {@code
-         * <receiver android:name="com.mixpanel.android.mpmetrics.GCMReceiver"
-         *           android:permission="com.google.android.c2dm.permission.SEND" >
-         *     <intent-filter>
-         *         <action android:name="com.google.android.c2dm.intent.RECEIVE" />
-         *         <action android:name="com.google.android.c2dm.intent.REGISTRATION" />
-         *         <category android:name="YOUR_PACKAGE_NAME" />
-         *     </intent-filter>
-         * </receiver>
+         * <meta-data android:name="com.mixpanel.android.MPConfig.EnableDebugLogging" />
          * }
-         * </pre>
          *
-         * Be sure to replace "YOUR_PACKAGE_NAME" with the name of your package. For
-         * more information and a list of necessary permissions, see {@link GCMReceiver}.
+         * To the {@code <application>} tag of your AndroidManifest.xml file.
          *
-         * <p>If you're planning to use end-to-end support for Messaging, we recommend you
-         * call this method immediately after calling {@link People#identify(String)}, likely
-         * early in your application's life cycle. (for example, in the onCreate method of your
-         * main application activity.)
-         *
-         * <p>Calls to {@link People#initPushHandling} should not be mixed with calls to
-         * {@link #setPushRegistrationId(String)} and {@link #clearPushRegistrationId()}
-         * in the same application. Application authors should choose one or the other
-         * method for handling Mixpanel GCM messages.
-         *
-         * @param senderID of the Google API Project that registered for Google Cloud Messaging
-         *     You can find your ID by looking at the URL of in your Google API Console
-         *     at https://code.google.com/apis/console/; it is the twelve digit number after
-         *     after "#project:" in the URL address bar on console pages.
-         *
-         * @see com.mixpanel.android.mpmetrics.GCMReceiver
-         * @see <a href="https://mixpanel.com/docs/people-analytics/android-push">Getting Started with Android Push Notifications</a>
+         * @deprecated in 4.1.0, use Manifest meta-data instead
          */
+        @Deprecated
         public void initPushHandling(String senderID);
 
         /**
@@ -1277,7 +1244,7 @@ public class MixpanelAPI {
      * Once registered, we can automatically check for and show in-app notifications
      * when any Activity is opened.
      *
-     * This is only available if the android version is >= 16. You can disable livecycle callbacks by setting
+     * This is only available if the android version is >= 16. You can disable lifecycle callbacks by setting
      * com.mixpanel.android.MPConfig.AutoShowMixpanelUpdates to false in your AndroidManifest.xml
      *
      * This function is automatically called when the library is initialized unless you explicitly
@@ -1322,13 +1289,16 @@ public class MixpanelAPI {
         mUpdatesFromMixpanel.applyPersistedUpdates();
     }
 
-    // Package-level access. Used (at least) by GCMReceiver
+    // Package-level access.
     // when OS-level events occur.
-    /* package */ interface InstanceProcessor {
+    /* package */
+    @SuppressWarnings("UnnecessaryInterfaceModifier")
+    interface InstanceProcessor {
         public void process(MixpanelAPI m);
     }
 
-    /* package */ static void allInstances(InstanceProcessor processor) {
+    /* package */ @SuppressWarnings("Convert2streamapi")
+    static void allInstances(InstanceProcessor processor) {
         synchronized (sInstanceMap) {
             for (final Map<Context, MixpanelAPI> contextInstances : sInstanceMap.values()) {
                 for (final MixpanelAPI instance : contextInstances.values()) {
@@ -1346,7 +1316,8 @@ public class MixpanelAPI {
         return AnalyticsMessages.getInstance(mContext);
     }
 
-    /* package */ PersistentIdentity getPersistentIdentity(final Context context, Future<SharedPreferences> referrerPreferences, final String token) {
+    /* package */
+    PersistentIdentity getPersistentIdentity(final Context context, Future<SharedPreferences> referrerPreferences, final String token) {
         final SharedPreferencesLoader.OnPrefsLoadedListener listener = new SharedPreferencesLoader.OnPrefsLoadedListener() {
             @Override
             public void onPrefsLoaded(SharedPreferences preferences) {
@@ -1436,8 +1407,9 @@ public class MixpanelAPI {
         public void set(JSONObject properties) {
             try {
                 final JSONObject sendProperties = new JSONObject(mDeviceInfo);
-                for (final Iterator<?> iter = properties.keys(); iter.hasNext();) {
-                    final String key = (String) iter.next();
+                final Iterator<String> iterator = properties.keys();
+                while (iterator.hasNext()) {
+                    final String key = iterator.next();
                     sendProperties.put(key, properties.get(key));
                 }
 
@@ -1515,7 +1487,7 @@ public class MixpanelAPI {
 
         @Override
         public void increment(String property, double value) {
-            final Map<String, Double> map = new HashMap<String, Double>();
+            final Map<String, Double> map = new HashMap<>();
             map.put(property, value);
             increment(map);
         }
@@ -1540,7 +1512,7 @@ public class MixpanelAPI {
                 final JSONObject message = stdPeopleMessage("$union", properties);
                 recordPeopleMessage(message);
             } catch (final JSONException e) {
-                MPLog.e(LOGTAG, "Exception unioning a property");
+                MPLog.e(LOGTAG, "Exception union-ing a property");
             }
         }
 
@@ -1564,7 +1536,7 @@ public class MixpanelAPI {
                 final JSONObject message = stdPeopleMessage("$unset", names);
                 recordPeopleMessage(message);
             } catch (final JSONException e) {
-                MPLog.e(LOGTAG, "Exception unsetting a property", e);
+                MPLog.e(LOGTAG, "Exception un-setting a property", e);
             }
         }
 
@@ -1652,8 +1624,9 @@ public class MixpanelAPI {
                 transactionValue.put("$time", dateFormat.format(now));
 
                 if (null != properties) {
-                    for (final Iterator<?> iter = properties.keys(); iter.hasNext();) {
-                        final String key = (String) iter.next();
+                    final Iterator<String> iterator = properties.keys();
+                    while (iterator.hasNext()) {
+                        final String key = iterator.next();
                         transactionValue.put(key, properties.get(key));
                     }
                 }
@@ -1722,28 +1695,7 @@ public class MixpanelAPI {
 
         @Override
         public void initPushHandling(String senderID) {
-            if (! ConfigurationChecker.checkPushConfiguration(mContext) ) {
-                MPLog.i(LOGTAG, "Can't register for push notification services. Push notifications will not work.");
-                MPLog.i(LOGTAG, "See log tagged " + ConfigurationChecker.LOGTAG + " above for details.");
-            }
-            else { // Configuration is good for at least some push notifications
-                final String pushId = mPersistentIdentity.getPushId();
-                if (pushId == null) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                        registerForPushIdAPI21AndUp(senderID);
-                    } else {
-                        registerForPushIdAPI19AndOlder(senderID);
-                    }
-                } else {
-                    MixpanelAPI.allInstances(new InstanceProcessor() {
-                        @Override
-                        public void process(MixpanelAPI api) {
-                            MPLog.v(LOGTAG, "Using existing pushId " + pushId);
-                            api.getPeople().setPushRegistrationId(pushId);
-                        }
-                    });
-                }
-            }// endelse
+            MPLog.i(LOGTAG, "Can't register for push notification services. Push notifications will not work.");
         }
 
         @Override
@@ -1807,24 +1759,6 @@ public class MixpanelAPI {
             }
 
             return dataObj;
-        }
-
-        @TargetApi(21)
-        private void registerForPushIdAPI21AndUp(String senderID) {
-            mMessages.registerForGCM(senderID);
-        }
-
-        @TargetApi(19)
-        private void registerForPushIdAPI19AndOlder(String senderID) {
-            try {
-                MPLog.v(LOGTAG, "Registering a new push id");
-                final Intent registrationIntent = new Intent("com.google.android.c2dm.intent.REGISTER");
-                registrationIntent.putExtra("app", PendingIntent.getBroadcast(mContext, 0, new Intent(), 0));
-                registrationIntent.putExtra("sender", senderID);
-                mContext.startService(registrationIntent);
-            } catch (final SecurityException e) {
-                MPLog.w(LOGTAG, "Error registering for push notifications", e);
-            }
         }
 
         private void showGivenOrAvailableNotification(final InAppNotification notifOrNull, final Activity parent) {
@@ -1893,7 +1827,7 @@ public class MixpanelAPI {
                                     transaction.commit();
                                 } catch (IllegalStateException e) {
                                     // if the app is in the background or the current activity gets killed, rendering the
-                                    // notifiction will lead to a crash
+                                    // notification will lead to a crash
                                     MPLog.v(LOGTAG, "Unable to show notification.");
                                     mDecideMessages.markNotificationAsUnseen(toShow);
                                 }
@@ -1924,6 +1858,7 @@ public class MixpanelAPI {
         }
     }// PeopleImpl
 
+    @SuppressWarnings("UnnecessaryInterfaceModifier")
     private interface UpdatesListener extends DecideMessages.OnNewResultsListener {
         public void addOnMixpanelUpdatesReceivedListener(OnMixpanelUpdatesReceivedListener listener);
         public void removeOnMixpanelUpdatesReceivedListener(OnMixpanelUpdatesReceivedListener listener);
@@ -1966,6 +1901,7 @@ public class MixpanelAPI {
             mListeners.remove(listener);
         }
 
+        @SuppressWarnings("Convert2streamapi")
         @Override
         public void run() {
             // It's possible that by the time this has run the updates we detected are no longer
@@ -2070,9 +2006,9 @@ public class MixpanelAPI {
             }
 
             if (null != properties) {
-                final Iterator<?> propIter = properties.keys();
-                while (propIter.hasNext()) {
-                    final String key = (String) propIter.next();
+                final Iterator<String> iterator = properties.keys();
+                while (iterator.hasNext()) {
+                    final String key = iterator.next();
                     messageProps.put(key, properties.get(key));
                 }
             }
@@ -2117,6 +2053,7 @@ public class MixpanelAPI {
         }
     }
 
+    @SuppressWarnings("TryWithIdenticalCatches")
     private static void registerAppLinksListeners(Context context, final MixpanelAPI mixpanel) {
         // Register a BroadcastReceiver to receive com.parse.bolts.measurement_event and track a call to mixpanel
         try {
@@ -2152,6 +2089,7 @@ public class MixpanelAPI {
         }
     }
 
+    @SuppressWarnings("TryWithIdenticalCatches")
     private static void checkIntentForInboundAppLink(Context context) {
         // call the Bolts getTargetUrlFromInboundIntent method simply for a side effect
         // if the intent is the result of an App Link, it'll trigger al_nav_in
@@ -2191,7 +2129,7 @@ public class MixpanelAPI {
     private MixpanelActivityLifecycleCallbacks mMixpanelActivityLifecycleCallbacks;
 
     // Maps each token to a singleton MixpanelAPI instance
-    private static final Map<String, Map<Context, MixpanelAPI>> sInstanceMap = new HashMap<String, Map<Context, MixpanelAPI>>();
+    private static final Map<String, Map<Context, MixpanelAPI>> sInstanceMap = new HashMap<>();
     private static final SharedPreferencesLoader sPrefsLoader = new SharedPreferencesLoader();
     private static final Tweaks sSharedTweaks = new Tweaks();
     private static Future<SharedPreferences> sReferrerPrefs;

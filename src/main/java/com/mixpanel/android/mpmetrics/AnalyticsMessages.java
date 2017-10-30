@@ -9,28 +9,23 @@ import android.os.Message;
 import android.os.Process;
 import android.os.SystemClock;
 import android.util.DisplayMetrics;
-
-import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.GoogleApiAvailability;
-import com.google.android.gms.gcm.GoogleCloudMessaging;
-import com.google.android.gms.iid.InstanceID;
 import com.mixpanel.android.util.Base64Coder;
 import com.mixpanel.android.util.HttpService;
 import com.mixpanel.android.util.MPLog;
 import com.mixpanel.android.util.RemoteService;
-
-import org.json.JSONException;
-import org.json.JSONObject;
-
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
-import java.net.SocketTimeoutException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Locale;
 import java.util.Map;
-
 import javax.net.ssl.SSLSocketFactory;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /**
  * Manage communication of events with the internal database and the Mixpanel servers.
@@ -38,7 +33,9 @@ import javax.net.ssl.SSLSocketFactory;
  * <p>This class straddles the thread boundary between user threads and
  * a logical Mixpanel thread.
  */
-/* package */ class AnalyticsMessages {
+/* package */
+@SuppressWarnings("WeakerAccess")
+class AnalyticsMessages {
 
     /**
      * Do not call directly. You should call AnalyticsMessages.getInstance()
@@ -104,14 +101,6 @@ import javax.net.ssl.SSLSocketFactory;
         final Message m = Message.obtain();
         m.what = INSTALL_DECIDE_CHECK;
         m.obj = check;
-
-        mWorker.runMessage(m);
-    }
-
-    public void registerForGCM(final String senderID) {
-        final Message m = Message.obtain();
-        m.what = REGISTER_FOR_GCM;
-        m.obj = senderID;
 
         mWorker.runMessage(m);
     }
@@ -257,8 +246,7 @@ import javax.net.ssl.SSLSocketFactory;
         protected Handler restartWorkerThread() {
             final HandlerThread thread = new HandlerThread("com.mixpanel.android.AnalyticsWorker", Process.THREAD_PRIORITY_BACKGROUND);
             thread.start();
-            final Handler ret = new AnalyticsMessageHandler(thread.getLooper());
-            return ret;
+            return new AnalyticsMessageHandler(thread.getLooper());
         }
 
         class AnalyticsMessageHandler extends Handler {
@@ -313,7 +301,7 @@ import javax.net.ssl.SSLSocketFactory;
                         logAboutMessageToMixpanel("Flushing queue due to scheduled or forced flush");
                         updateFlushFrequency();
                         token = (String) msg.obj;
-                        boolean shouldCheckDecide = msg.arg1 == 1 ? true : false;
+                        final boolean shouldCheckDecide = msg.arg1 == 1;
                         sendAllData(mDbAdapter, token);
                         if (shouldCheckDecide && SystemClock.elapsedRealtime() >= mDecideRetryAfter) {
                             try {
@@ -333,15 +321,15 @@ import javax.net.ssl.SSLSocketFactory;
                                 mDecideRetryAfter = SystemClock.elapsedRealtime() + e.getRetryAfter() * 1000;
                             }
                         }
-                    } else if (msg.what == REGISTER_FOR_GCM) {
-                        final String senderId = (String) msg.obj;
-                        runGCMRegistration(senderId);
                     } else if (msg.what == KILL_WORKER) {
                         MPLog.w(LOGTAG, "Worker received a hard kill. Dumping all events and force-killing. Thread id " + Thread.currentThread().getId());
                         synchronized(mHandlerLock) {
                             mDbAdapter.deleteDB();
                             mHandler = null;
-                            Looper.myLooper().quit();
+                            final Looper looper = Looper.myLooper();
+                            if (looper != null) {
+                                looper.quit();
+                            }
                         }
                     } else {
                         MPLog.e(LOGTAG, "Unexpected message received by Mixpanel worker: " + msg);
@@ -380,7 +368,10 @@ import javax.net.ssl.SSLSocketFactory;
                     synchronized (mHandlerLock) {
                         mHandler = null;
                         try {
-                            Looper.myLooper().quit();
+                            final Looper looper = Looper.myLooper();
+                            if (looper != null) {
+                                looper.quit();
+                            }
                             MPLog.e(LOGTAG, "Mixpanel will not process any more analytics messages", e);
                         } catch (final Exception tooLate) {
                             MPLog.e(LOGTAG, "Could not halt looper", tooLate);
@@ -391,47 +382,6 @@ import javax.net.ssl.SSLSocketFactory;
 
             protected long getTrackEngageRetryAfter() {
                 return mTrackEngageRetryAfter;
-            }
-
-            private void runGCMRegistration(String senderID) {
-                final String registrationId;
-                try {
-                    // We don't actually require Google Play Services to be available
-                    // (since we can't specify what version customers will be using,
-                    // and because the latest Google Play Services actually have
-                    // dependencies on Java 7)
-
-                    // Consider adding a transitive dependency on the latest
-                    // Google Play Services version and requiring Java 1.7
-                    // in the next major library release.
-                    try {
-                        final int resultCode = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(mContext);
-                        if (resultCode != ConnectionResult.SUCCESS) {
-                            MPLog.i(LOGTAG, "Can't register for push notifications, Google Play Services are not installed.");
-                            return;
-                        }
-                    } catch (RuntimeException e) {
-                        MPLog.i(LOGTAG, "Can't register for push notifications, Google Play services are not configured.");
-                        return;
-                    }
-
-                    InstanceID instanceID = InstanceID.getInstance(mContext);
-                    registrationId = instanceID.getToken(senderID, GoogleCloudMessaging.INSTANCE_ID_SCOPE, null);
-                } catch (IOException e) {
-                    MPLog.i(LOGTAG, "Exception when trying to register for GCM", e);
-                    return;
-                } catch (NoClassDefFoundError e) {
-                    MPLog.w(LOGTAG, "Google play services were not part of this build, push notifications cannot be registered or delivered");
-                    return;
-                }
-
-                MixpanelAPI.allInstances(new MixpanelAPI.InstanceProcessor() {
-                    @Override
-                    public void process(MixpanelAPI api) {
-                        MPLog.v(LOGTAG, "Using existing pushId " + registrationId);
-                        api.getPeople().setPushRegistrationId(registrationId);
-                    }
-                });
             }
 
             private void sendAllData(MPDbAdapter dbAdapter, String token) {
@@ -463,7 +413,7 @@ import javax.net.ssl.SSLSocketFactory;
                     final String rawMessage = eventsData[1];
 
                     final String encodedData = Base64Coder.encodeString(rawMessage);
-                    final Map<String, Object> params = new HashMap<String, Object>();
+                    final Map<String, Object> params = new HashMap<>();
                     params.put("data", encodedData);
                     if (MPConfig.DEBUG) {
                         params.put("verbose", "1");
@@ -501,9 +451,6 @@ import javax.net.ssl.SSLSocketFactory;
                         logAboutMessageToMixpanel("Cannot post message to " + url + ".", e);
                         deleteEvents = false;
                         mTrackEngageRetryAfter = e.getRetryAfter() * 1000;
-                    } catch (final SocketTimeoutException e) {
-                        logAboutMessageToMixpanel("Cannot post message to " + url + ".", e);
-                        deleteEvents = false;
                     } catch (final IOException e) {
                         logAboutMessageToMixpanel("Cannot post message to " + url + ".", e);
                         deleteEvents = false;
@@ -532,107 +479,85 @@ import javax.net.ssl.SSLSocketFactory;
                 }
             }
 
-            private JSONObject getDefaultEventProperties()
-                    throws JSONException {
-                final JSONObject ret = new JSONObject();
+            private String getLocalTime() {
+                try {
+                    final Calendar c = Calendar.getInstance();
+                    final int offset = (c.get(Calendar.ZONE_OFFSET) + c.get(Calendar.DST_OFFSET)) / (60 * 1000);
+                    final int hourOffset = Math.abs(offset / 60);
+                    final int minuteOffset = Math.abs(offset % 60);
+                    final String tz;
+                    if (offset == 0) {
+                        tz = "Z";
+                    } else {
+                        tz = ((offset > 0) ? "-" : "+") + String.format(Locale.ENGLISH, "%02d", hourOffset)
+                                + ":" + String.format(Locale.ENGLISH, "%02d", minuteOffset);
+                    }
+                    final DateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss" + tz, Locale.ENGLISH);
+                    return format.format(c.getTime());
+                } catch (Throwable t) {
+                    return "ERROR";
+                }
+            }
 
-                ret.put("mp_lib", "android");
-                ret.put("$lib_version", MPConfig.VERSION);
+            private JSONObject getDefaultEventProperties() throws JSONException {
+                final JSONObject ret = new JSONObject();
+                final String prefix = MPConfig.getSpPrefix();
+                ret.put(prefix + "local_time", getLocalTime());
 
                 // For querying together with data from other libraries
-                ret.put("$os", "Android");
-                ret.put("$os_version", Build.VERSION.RELEASE == null ? "UNKNOWN" : Build.VERSION.RELEASE);
+                ret.put(prefix + "seq_no", MixpanelAPI.sSequenceNumber++);
+                ret.put(prefix + "af_platform", "android");
+                ret.put(prefix + "os", Build.VERSION.SDK_INT);
+                ret.put(prefix + "os_version", Build.VERSION.RELEASE == null ? "UNKNOWN" : Build.VERSION.RELEASE);
 
-                ret.put("$manufacturer", Build.MANUFACTURER == null ? "UNKNOWN" : Build.MANUFACTURER);
-                ret.put("$brand", Build.BRAND == null ? "UNKNOWN" : Build.BRAND);
-                ret.put("$model", Build.MODEL == null ? "UNKNOWN" : Build.MODEL);
-
+                ret.put(prefix + "manufacturer", Build.MANUFACTURER == null ? "UNKNOWN" : Build.MANUFACTURER);
+                ret.put(prefix + "brand", Build.BRAND == null ? "UNKNOWN" : Build.BRAND);
+                ret.put(prefix + "model", Build.MODEL == null ? "UNKNOWN" : Build.MODEL);
                 try {
-                    try {
-                        final int servicesAvailable = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(mContext);
-                        switch (servicesAvailable) {
-                            case ConnectionResult.SUCCESS:
-                                ret.put("$google_play_services", "available");
-                                break;
-                            case ConnectionResult.SERVICE_MISSING:
-                                ret.put("$google_play_services", "missing");
-                                break;
-                            case ConnectionResult.SERVICE_VERSION_UPDATE_REQUIRED:
-                                ret.put("$google_play_services", "out of date");
-                                break;
-                            case ConnectionResult.SERVICE_DISABLED:
-                                ret.put("$google_play_services", "disabled");
-                                break;
-                            case ConnectionResult.SERVICE_INVALID:
-                                ret.put("$google_play_services", "invalid");
-                                break;
-                        }
-                    } catch (RuntimeException e) {
-                        // Turns out even checking for the service will cause explosions
-                        // unless we've set up meta-data
-                        ret.put("$google_play_services", "not configured");
-                    }
-
-                } catch (NoClassDefFoundError e) {
-                    ret.put("$google_play_services", "not included");
-                }
+                    ret.put(prefix + "device_language", Locale.getDefault().getISO3Language().substring(0, 2));
+                } catch (Throwable ignore) { }
 
                 final DisplayMetrics displayMetrics = mSystemInformation.getDisplayMetrics();
-                ret.put("$screen_dpi", displayMetrics.densityDpi);
-                ret.put("$screen_height", displayMetrics.heightPixels);
-                ret.put("$screen_width", displayMetrics.widthPixels);
+                ret.put(prefix + "screen_dpi", displayMetrics.densityDpi);
+                ret.put(prefix + "screen_height", displayMetrics.heightPixels);
+                ret.put(prefix + "screen_width", displayMetrics.widthPixels);
 
                 final String applicationVersionName = mSystemInformation.getAppVersionName();
-                if (null != applicationVersionName) {
-                    ret.put("$app_version", applicationVersionName);
-                    ret.put("$app_version_string", applicationVersionName);
-                }
+                if (null != applicationVersionName) ret.put(prefix + "app_version", applicationVersionName);
 
-                 final Integer applicationVersionCode = mSystemInformation.getAppVersionCode();
-                 if (null != applicationVersionCode) {
-                    ret.put("$app_release", applicationVersionCode);
-                    ret.put("$app_build_number", applicationVersionCode);
-                }
-
-                final Boolean hasNFC = mSystemInformation.hasNFC();
-                if (null != hasNFC)
-                    ret.put("$has_nfc", hasNFC.booleanValue());
-
-                final Boolean hasTelephony = mSystemInformation.hasTelephony();
-                if (null != hasTelephony)
-                    ret.put("$has_telephone", hasTelephony.booleanValue());
+                final Integer applicationVersionCode = mSystemInformation.getAppVersionCode();
+                if (null != applicationVersionCode) ret.put(prefix + "app_release", applicationVersionCode);
 
                 final String carrier = mSystemInformation.getCurrentNetworkOperator();
-                if (null != carrier)
-                    ret.put("$carrier", carrier);
+                if (null != carrier) {
+                    ret.put(prefix + "carrier", carrier);
+                }
 
-                final Boolean isWifi = mSystemInformation.isWifiConnected();
-                if (null != isWifi)
-                    ret.put("$wifi", isWifi.booleanValue());
-
-                final Boolean isBluetoothEnabled = mSystemInformation.isBluetoothEnabled();
-                if (isBluetoothEnabled != null)
-                    ret.put("$bluetooth_enabled", isBluetoothEnabled);
-
-                final String bluetoothVersion = mSystemInformation.getBluetoothVersion();
-                if (bluetoothVersion != null)
-                    ret.put("$bluetooth_version", bluetoothVersion);
-
+                ret.put(prefix + "wifi", mSystemInformation.isWifiConnected());
+                ret.put(prefix + "has_nfc", mSystemInformation.hasNFC());
+                ret.put(prefix + "has_telephone", mSystemInformation.hasTelephony());
                 return ret;
             }
 
-            private JSONObject prepareEventObject(EventDescription eventDescription) throws JSONException {
+            private JSONObject prepareEventObject(final EventDescription eventDescription) throws JSONException {
                 final JSONObject eventObj = new JSONObject();
                 final JSONObject eventProperties = eventDescription.getProperties();
                 final JSONObject sendProperties = getDefaultEventProperties();
                 sendProperties.put("token", eventDescription.getToken());
+                long ts = System.currentTimeMillis();
                 if (eventProperties != null) {
-                    for (final Iterator<?> iter = eventProperties.keys(); iter.hasNext();) {
-                        final String key = (String) iter.next();
+                    final Iterator<String> iterator = eventProperties.keys();
+                    while (iterator.hasNext()) {
+                        final String key = iterator.next();
                         sendProperties.put(key, eventProperties.get(key));
                     }
+                    try {
+                        ts = eventProperties.getLong("time");
+                    } catch (final Throwable ignored) { }
                 }
-                eventObj.put("event", eventDescription.getEventName());
+                eventObj.put("event", eventDescription.getEventName().toLowerCase(Locale.ENGLISH)
+                        .replace(" ", "_").replace("-", "_"));
+                eventObj.put("ts", ts);
                 eventObj.put("properties", sendProperties);
                 return eventObj;
             }
@@ -686,10 +611,9 @@ import javax.net.ssl.SSLSocketFactory;
     private static final int FLUSH_QUEUE = 2; // push given JSON message to events DB
     private static final int KILL_WORKER = 5; // Hard-kill the worker thread, discarding all events on the event queue. This is for testing, or disasters.
     private static final int INSTALL_DECIDE_CHECK = 12; // Run this DecideCheck at intervals until it isDestroyed()
-    private static final int REGISTER_FOR_GCM = 13; // Register for GCM using Google Play Services
 
     private static final String LOGTAG = "MixpanelAPI.Messages";
 
-    private static final Map<Context, AnalyticsMessages> sInstances = new HashMap<Context, AnalyticsMessages>();
+    private static final Map<Context, AnalyticsMessages> sInstances = new HashMap<>();
 
 }

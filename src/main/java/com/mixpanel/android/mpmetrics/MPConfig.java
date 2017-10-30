@@ -42,7 +42,7 @@ import javax.net.ssl.SSLSocketFactory;
  *
  *     <dt>com.mixpanel.android.MPConfig.MinimumDatabaseLimit</dt>
  *     <dd>An integer number of bytes. Mixpanel attempts to limit the size of its persistent data
- *          queue based on the storage capacity of the device, but will always allow queing below this limit. Higher values
+ *          queue based on the storage capacity of the device, but will always allow queueing below this limit. Higher values
  *          will take up more storage even when user storage is very full.</dd>
  *
  *     <dt>com.mixpanel.android.MPConfig.ResourcePackageName</dt>
@@ -113,6 +113,7 @@ import javax.net.ssl.SSLSocketFactory;
  * </dl>
  *
  */
+@SuppressWarnings({ "WeakerAccess", "JavaDoc", "unused" })
 public class MPConfig {
 
     public static final String VERSION = BuildConfig.MIXPANEL_VERSION;
@@ -196,6 +197,22 @@ public class MPConfig {
         mOfflineMode = offlineMode;
     }
 
+    public static synchronized void setDebuggable(final boolean debuggable) {
+        MPConfig.DEBUG = debuggable;
+    }
+
+    public synchronized void setEventsEndpoint(final String endpoint) {
+        this.mEventsEndpoint = endpoint;
+    }
+
+    public static void setSpPrefix(final String spPrefix) {
+        MPConfig.spPrefix = spPrefix;
+    }
+
+    public static String getSpPrefix() {
+        return spPrefix;
+    }
+
     /* package */ MPConfig(Bundle metaData, Context context) {
 
         // By default, we use a clean, FACTORY default SSLSocket. In general this is the right
@@ -236,9 +253,9 @@ public class MPConfig {
         mNotificationDefaults = metaData.getInt("com.mixpanel.android.MPConfig.NotificationDefaults", 0);
         mMinSessionDuration = metaData.getInt("com.mixpanel.android.MPConfig.MinimumSessionDuration", 10 * 1000); // 10 seconds
         mSessionTimeoutDuration = metaData.getInt("com.mixpanel.android.MPConfig.SessionTimeoutDuration", Integer.MAX_VALUE); // no timeout by default
-        mUseIpAddressForGeolocation = metaData.getBoolean("com.mixpanel.android.MPConfig.UseIpAddressForGeolocation", true);
         mTestMode = metaData.getBoolean("com.mixpanel.android.MPConfig.TestMode", false);
         mNotificationChannelImportance = metaData.getInt("com.mixpanel.android.MPConfig.NotificationChannelImportance", 3); // NotificationManger.IMPORTANCE_DEFAULT
+        final boolean mUseIpAddressForGeolocation = metaData.getBoolean("com.mixpanel.android.MPConfig.UseIpAddressForGeolocation", true);
 
         String notificationChannelId = metaData.getString("com.mixpanel.android.MPConfig.NotificationChannelId");
         if (notificationChannelId == null) {
@@ -371,7 +388,7 @@ public class MPConfig {
         return mAutoShowMixpanelUpdates;
     }
 
-    // Preferred URL for connecting to the editor websocket
+    // Preferred URL for connecting to the editor web socket
     public String getEditorUrl() {
         return mEditorUrl;
     }
@@ -466,7 +483,7 @@ public class MPConfig {
     private final boolean mDisableAppOpenEvent;
     private final boolean mDisableViewCrawler;
     private final String[] mDisableViewCrawlerForProjects;
-    private final String mEventsEndpoint;
+    private String mEventsEndpoint;
     private final String mPeopleEndpoint;
     private final String mDecideEndpoint;
     private final boolean mAutoShowMixpanelUpdates;
@@ -478,10 +495,11 @@ public class MPConfig {
     private final int mNotificationDefaults;
     private final int mMinSessionDuration;
     private final int mSessionTimeoutDuration;
-    private final boolean mUseIpAddressForGeolocation;
     private final int mNotificationChannelImportance;
     private final String mNotificationChannelId;
     private final String mNotificationChannelName;
+
+    private static String spPrefix = "";
 
     // Mutable, with synchronized accessor and mutator
     private SSLSocketFactory mSSLSocketFactory;
