@@ -78,6 +78,8 @@ import javax.net.ssl.SSLSocketFactory;
     }
 
     public void runDecideCheck(final String token, final RemoteService poster) throws RemoteService.ServiceUnavailableException {
+        MPLog.v(LOGTAG, "Disabled!");
+        /*
         DecideMessages updates = mChecks.get(token);
         if (updates != null) {
             final String distinctId = updates.getDistinctId();
@@ -90,6 +92,7 @@ import javax.net.ssl.SSLSocketFactory;
                 MPLog.e(LOGTAG, e.getMessage(), e);
             }
         }
+        */
     }
 
     /* package */ static class UnintelligibleMessageException extends Exception {

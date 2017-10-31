@@ -9,15 +9,9 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-
 import com.mixpanel.android.viewcrawler.GestureTracker;
-
 import org.json.JSONException;
 import org.json.JSONObject;
-
-import java.text.DecimalFormat;
-import java.text.NumberFormat;
-import java.util.Locale;
 
 @TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
 /* package */ class MixpanelActivityLifecycleCallbacks implements Application.ActivityLifecycleCallbacks {
@@ -56,29 +50,6 @@ import java.util.Locale;
         if (check != null) {
             mHandler.removeCallbacks(check);
         }
-
-        mHandler.postDelayed(check = new Runnable(){
-            @Override
-            public void run() {
-                if (mIsForeground && mPaused) {
-                    mIsForeground = false;
-                    try {
-                        double sessionLength = System.currentTimeMillis() - sStartSessionTime;
-                        if (sessionLength >= mConfig.getMinimumSessionDuration() && sessionLength < mConfig.getSessionTimeoutDuration()) {
-                            NumberFormat nf = NumberFormat.getNumberInstance(Locale.ENGLISH);
-                            nf.setMaximumFractionDigits(1);
-                            String sessionLengthString = nf.format((System.currentTimeMillis() - sStartSessionTime) / 1000);
-                            JSONObject sessionProperties = new JSONObject();
-                            sessionProperties.put(AutomaticEvents.SESSION_LENGTH, sessionLengthString);
-                            mMpInstance.track(AutomaticEvents.SESSION, sessionProperties, true);
-                        }
-                    } catch (JSONException e) {
-                        e.printStackTrace();
-                    }
-                    mMpInstance.onBackground();
-                }
-            }
-        }, CHECK_DELAY);
     }
 
     @Override
@@ -136,7 +107,7 @@ import java.util.Locale;
                     pushProps.put("message_id", Integer.valueOf(messageId).intValue());
                     pushProps.put("message_type", "push");
                     mMpInstance.track("$app_open", pushProps);
-                } catch (JSONException e) {}
+                } catch (JSONException ignored) { }
 
                 intent.removeExtra("mp_campaign_id");
                 intent.removeExtra("mp_message_id");

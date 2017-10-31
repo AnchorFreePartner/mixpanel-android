@@ -51,6 +51,7 @@ public class FadingImageView extends ImageView {
             // onDraw is called, the Canvas with the background has already been saved, so we can't
             // actually clear it with our opacity gradient.
             final Rect clip = canvas.getClipBounds();
+            @SuppressWarnings("deprecation")
             final int restoreTo = canvas.saveLayer(0, 0, clip.width(), clip.height(), null, Canvas.ALL_SAVE_FLAG);
 
             super.draw(canvas);
