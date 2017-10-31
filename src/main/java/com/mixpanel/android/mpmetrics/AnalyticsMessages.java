@@ -18,9 +18,11 @@ import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import javax.net.ssl.SSLSocketFactory;
@@ -391,11 +393,14 @@ class AnalyticsMessages {
                     return;
                 }
 
-                sendData(dbAdapter, token, MPDbAdapter.Table.EVENTS, mConfig.getEventsEndpoint());
-                sendData(dbAdapter, token, MPDbAdapter.Table.PEOPLE, mConfig.getPeopleEndpoint());
+                final List<String> endpoints = new ArrayList<>();
+                endpoints.add(mConfig.getEventsEndpoint());
+                endpoints.addAll(mConfig.getEventsFallbackEndpoints());
+                sendData(dbAdapter, token, MPDbAdapter.Table.EVENTS, endpoints);
             }
 
-            private void sendData(MPDbAdapter dbAdapter, String token, MPDbAdapter.Table table, String url) {
+            private void sendData(final MPDbAdapter dbAdapter, final String token,
+                    final MPDbAdapter.Table table, final List<String> urls) {
                 final RemoteService poster = getPoster();
                 DecideMessages decideMessages = mDecideChecker.getDecideMessages(token);
                 boolean includeAutomaticEvents = true;
@@ -420,40 +425,42 @@ class AnalyticsMessages {
                     }
 
                     boolean deleteEvents = true;
-                    byte[] response;
-                    try {
-                        final SSLSocketFactory socketFactory = mConfig.getSSLSocketFactory();
-                        response = poster.performRequest(url, params, socketFactory);
-                        if (null == response) {
-                            deleteEvents = false;
-                            logAboutMessageToMixpanel("Response was null, unexpected failure posting to " + url + ".");
-                        } else {
-                            deleteEvents = true; // Delete events on any successful post, regardless of 1 or 0 response
-                            String parsedResponse;
-                            try {
-                                parsedResponse = new String(response, "UTF-8");
-                            } catch (UnsupportedEncodingException e) {
-                                throw new RuntimeException("UTF not supported on this platform?", e);
-                            }
-                            if (mFailedRetries > 0) {
-                                mFailedRetries = 0;
-                                removeMessages(FLUSH_QUEUE, token);
-                            }
+                    for (final String url : urls) {
+                        try {
+                            final SSLSocketFactory socketFactory = mConfig.getSSLSocketFactory();
+                            final byte[] response = poster.performRequest(url, params, socketFactory);
+                            if (null == response) {
+                                deleteEvents = false;
+                                logAboutMessageToMixpanel("Response was null, unexpected failure posting to " + url + ".");
+                            } else {
+                                deleteEvents = true; // Delete events on any successful post, regardless of 1 or 0 response
+                                String parsedResponse;
+                                try {
+                                    parsedResponse = new String(response, "UTF-8");
+                                } catch (UnsupportedEncodingException e) {
+                                    throw new RuntimeException("UTF not supported on this platform?", e);
+                                }
+                                if (mFailedRetries > 0) {
+                                    mFailedRetries = 0;
+                                    removeMessages(FLUSH_QUEUE, token);
+                                }
 
-                            logAboutMessageToMixpanel("Successfully posted to " + url + ": \n" + rawMessage);
-                            logAboutMessageToMixpanel("Response was " + parsedResponse);
+                                logAboutMessageToMixpanel("Successfully posted to " + url + ": \n" + rawMessage);
+                                logAboutMessageToMixpanel("Response was " + parsedResponse);
+                                break;
+                            }
+                        } catch (final OutOfMemoryError e) {
+                            MPLog.e(LOGTAG, "Out of memory when posting to " + url + ".", e);
+                        } catch (final MalformedURLException e) {
+                            MPLog.e(LOGTAG, "Cannot interpret " + url + " as a URL.", e);
+                        } catch (final RemoteService.ServiceUnavailableException e) {
+                            logAboutMessageToMixpanel("Cannot post message to " + url + ".", e);
+                            deleteEvents = false;
+                            mTrackEngageRetryAfter = e.getRetryAfter() * 1000;
+                        } catch (final IOException e) {
+                            logAboutMessageToMixpanel("Cannot post message to " + url + ".", e);
+                            deleteEvents = false;
                         }
-                    } catch (final OutOfMemoryError e) {
-                        MPLog.e(LOGTAG, "Out of memory when posting to " + url + ".", e);
-                    } catch (final MalformedURLException e) {
-                        MPLog.e(LOGTAG, "Cannot interpret " + url + " as a URL.", e);
-                    } catch (final RemoteService.ServiceUnavailableException e) {
-                        logAboutMessageToMixpanel("Cannot post message to " + url + ".", e);
-                        deleteEvents = false;
-                        mTrackEngageRetryAfter = e.getRetryAfter() * 1000;
-                    } catch (final IOException e) {
-                        logAboutMessageToMixpanel("Cannot post message to " + url + ".", e);
-                        deleteEvents = false;
                     }
 
                     if (deleteEvents) {

@@ -12,6 +12,7 @@ import com.mixpanel.android.util.OfflineMode;
 
 import java.security.GeneralSecurityException;
 
+import java.util.List;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
 
@@ -205,6 +206,10 @@ public class MPConfig {
         this.mEventsEndpoint = endpoint;
     }
 
+    public synchronized void setEventsFallbackEndpoints(final List<String> fallbackEndpoints) {
+        mEventsFallbackEndpoints = fallbackEndpoints;
+    }
+
     public static void setSpPrefix(final String spPrefix) {
         MPConfig.spPrefix = spPrefix;
     }
@@ -373,6 +378,10 @@ public class MPConfig {
         return mEventsEndpoint;
     }
 
+    public List<String> getEventsFallbackEndpoints() {
+        return mEventsFallbackEndpoints;
+    }
+
     // Preferred URL for tracking people
     public String getPeopleEndpoint() {
         return mPeopleEndpoint;
@@ -484,6 +493,7 @@ public class MPConfig {
     private final boolean mDisableViewCrawler;
     private final String[] mDisableViewCrawlerForProjects;
     private String mEventsEndpoint;
+    private List<String> mEventsFallbackEndpoints;
     private final String mPeopleEndpoint;
     private final String mDecideEndpoint;
     private final boolean mAutoShowMixpanelUpdates;
