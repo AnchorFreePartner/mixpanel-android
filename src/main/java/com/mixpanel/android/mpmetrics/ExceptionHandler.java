@@ -1,9 +1,5 @@
 package com.mixpanel.android.mpmetrics;
 
-
-import org.json.JSONException;
-import org.json.JSONObject;
-
 public class ExceptionHandler implements Thread.UncaughtExceptionHandler {
 
     private static final String TAG = "MixpanelAPI.Exception";
@@ -30,18 +26,6 @@ public class ExceptionHandler implements Thread.UncaughtExceptionHandler {
 
     @Override
     public void uncaughtException(final Thread t, final Throwable e) {
-        // Only one worker thread - giving priority to storing the event first and then flush
-        MixpanelAPI.allInstances(new MixpanelAPI.InstanceProcessor() {
-            @Override
-            public void process(MixpanelAPI mixpanel) {
-                try {
-                    final JSONObject messageProp = new JSONObject();
-                    messageProp.put(AutomaticEvents.APP_CRASHED_REASON, e.toString());
-                    mixpanel.track(AutomaticEvents.APP_CRASHED, messageProp, true);
-                } catch (JSONException e) {}
-            }
-        });
-
         MixpanelAPI.allInstances(new MixpanelAPI.InstanceProcessor() {
             @Override
             public void process(MixpanelAPI mixpanel) {

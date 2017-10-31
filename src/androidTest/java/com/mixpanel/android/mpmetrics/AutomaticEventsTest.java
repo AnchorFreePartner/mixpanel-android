@@ -6,15 +6,9 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Process;
 import android.test.AndroidTestCase;
-
 import com.mixpanel.android.util.Base64Coder;
 import com.mixpanel.android.util.HttpService;
 import com.mixpanel.android.util.RemoteService;
-
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
@@ -22,8 +16,10 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-
 import javax.net.ssl.SSLSocketFactory;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /**
  * Created by sergioalonso on 5/16/17.
@@ -179,8 +175,6 @@ public class AutomaticEventsTest extends AndroidTestCase {
         mCleanMixpanelAPI.flush();
         assertTrue(mLatch.await(MAX_TIMEOUT_POLL, TimeUnit.MILLISECONDS));
         assertEquals(calls, mTrackedEvents);
-        assertEquals(AutomaticEvents.FIRST_OPEN, mPerformRequestEvents.poll(MAX_TIMEOUT_POLL, TimeUnit.MILLISECONDS));
-        assertEquals(AutomaticEvents.APP_UPDATED, mPerformRequestEvents.poll(MAX_TIMEOUT_POLL, TimeUnit.MILLISECONDS));
         assertEquals("An event One", mPerformRequestEvents.poll(MAX_TIMEOUT_POLL, TimeUnit.MILLISECONDS));
         assertEquals(null, mPerformRequestEvents.poll(MAX_TIMEOUT_POLL, TimeUnit.MILLISECONDS));
     }
@@ -316,8 +310,6 @@ public class AutomaticEventsTest extends AndroidTestCase {
             mCleanMixpanelAPI.track("Track event " + i);
         }
 
-        assertEquals(AutomaticEvents.FIRST_OPEN, mPerformRequestEvents.poll(MAX_TIMEOUT_POLL, TimeUnit.MILLISECONDS));
-        assertEquals(AutomaticEvents.APP_UPDATED, mPerformRequestEvents.poll(MAX_TIMEOUT_POLL, TimeUnit.MILLISECONDS));
         for (int i = 0; i < MPConfig.getInstance(getContext()).getBulkUploadLimit() - initialCalls; i++) {
             assertEquals("Track event " + i, mPerformRequestEvents.poll(MAX_TIMEOUT_POLL, TimeUnit.MILLISECONDS));
         }

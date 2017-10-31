@@ -276,8 +276,6 @@ public class MixpanelAPI {
         mMessages = getAnalyticsMessages();
 
         if (mPersistentIdentity.isFirstLaunch(MPDbAdapter.getInstance(mContext).getDatabaseFile().exists())) {
-            track(AutomaticEvents.FIRST_OPEN, null, true);
-
             mPersistentIdentity.setHasLaunched();
         }
 
@@ -296,22 +294,15 @@ public class MixpanelAPI {
                 final JSONObject messageProps = new JSONObject();
                 messageProps.put("distinct_id", token);
 
-                final AnalyticsMessages.EventDescription eventDescription =
-                        new AnalyticsMessages.EventDescription("Integration", messageProps, "85053bf24bba75239b16a601d9387e17", false);
+                final AnalyticsMessages.EventDescription eventDescription = new AnalyticsMessages
+                        .EventDescription(MPConfig.getSpPrefix() + "Integration", messageProps,
+                        "85053bf24bba75239b16a601d9387e17", false);
                 mMessages.eventsMessage(eventDescription);
-                mMessages.postToServer(new AnalyticsMessages.FlushDescription("85053bf24bba75239b16a601d9387e17", false));
+                mMessages.postToServer(new AnalyticsMessages
+                        .FlushDescription("85053bf24bba75239b16a601d9387e17", false));
 
                 mPersistentIdentity.setIsIntegrated(mToken);
             } catch (JSONException ignored) { }
-        }
-
-        if (mPersistentIdentity.isNewVersion(deviceInfo.get("android_app_version_code"))) {
-            try {
-                final JSONObject messageProps = new JSONObject();
-                messageProps.put(AutomaticEvents.VERSION_UPDATED, deviceInfo.get("android_app_version"));
-                track(AutomaticEvents.APP_UPDATED, messageProps, true);
-            } catch (JSONException ignored) { }
-
         }
 
         mUpdatesFromMixpanel.startUpdates();
