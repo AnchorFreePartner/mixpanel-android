@@ -509,10 +509,10 @@ class AnalyticsMessages {
             private JSONObject getDefaultEventProperties() throws JSONException {
                 final JSONObject ret = new JSONObject();
                 final String prefix = MPConfig.getSpPrefix();
-                ret.put(prefix + "local_time", getLocalTime());
+                ret.put("local_time", getLocalTime());
 
                 // For querying together with data from other libraries
-                ret.put(prefix + "seq_no", MixpanelAPI.sSequenceNumber++);
+                ret.put("seq_no", MixpanelAPI.sSequenceNumber++);
                 ret.put(prefix + "af_platform", "android");
                 ret.put(prefix + "os", Build.VERSION.SDK_INT);
                 ret.put(prefix + "os_version", Build.VERSION.RELEASE == null ? "UNKNOWN" : Build.VERSION.RELEASE);
@@ -521,7 +521,7 @@ class AnalyticsMessages {
                 ret.put(prefix + "brand", Build.BRAND == null ? "UNKNOWN" : Build.BRAND);
                 ret.put(prefix + "model", Build.MODEL == null ? "UNKNOWN" : Build.MODEL);
                 try {
-                    ret.put(prefix + "device_language", Locale.getDefault().getISO3Language().substring(0, 2));
+                    ret.put("device_language", Locale.getDefault().getISO3Language().substring(0, 2));
                 } catch (Throwable ignore) { }
 
                 final DisplayMetrics displayMetrics = mSystemInformation.getDisplayMetrics();
