@@ -6,6 +6,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.Bundle;
 
+import android.support.annotation.Nullable;
 import com.mixpanel.android.BuildConfig;
 import com.mixpanel.android.util.MPLog;
 import com.mixpanel.android.util.OfflineMode;
@@ -374,10 +375,12 @@ public class MPConfig {
     }
 
     // Preferred URL for tracking events
+    @Nullable
     public String getEventsEndpoint() {
         return mEventsEndpoint;
     }
 
+    @Nullable
     public List<String> getEventsFallbackEndpoints() {
         return mEventsFallbackEndpoints;
     }

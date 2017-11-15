@@ -394,8 +394,14 @@ class AnalyticsMessages {
                 }
 
                 final List<String> endpoints = new ArrayList<>();
-                endpoints.add(mConfig.getEventsEndpoint());
-                endpoints.addAll(mConfig.getEventsFallbackEndpoints());
+                final String eventsEndpoint = mConfig.getEventsEndpoint();
+                if (eventsEndpoint != null) {
+                    endpoints.add(eventsEndpoint);
+                }
+                final List<String> eventsFallbackEndpoints = mConfig.getEventsFallbackEndpoints();
+                if (eventsFallbackEndpoints != null) {
+                    endpoints.addAll(eventsFallbackEndpoints);
+                }
                 sendData(dbAdapter, token, MPDbAdapter.Table.EVENTS, endpoints);
             }
 
