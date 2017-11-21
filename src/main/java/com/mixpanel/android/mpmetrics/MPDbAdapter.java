@@ -375,8 +375,23 @@ import com.mixpanel.android.util.MPLog;
                 }
             }
 
-            if (arr.length() > 0) {
-                data = arr.toString();
+            final StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < arr.length(); i++) {
+                try {
+                    final String event = arr.get(i).toString();
+                    sb.append(event);
+                    if (i != arr.length() - 1) {
+                        sb.append("\n");
+                    }
+                } catch (JSONException e) {
+                    if (MPConfig.DEBUG) {
+                        MPLog.w(LOGTAG, e.getMessage(), e);
+                    }
+                }
+            }
+            data = sb.toString();
+            if (MPConfig.DEBUG) {
+                MPLog.d(LOGTAG, "data = " + data);
             }
         } catch (final SQLiteException e) {
             MPLog.e(LOGTAG, "Could not pull records for Mixpanel out of database " + tableName + ". Waiting to send.", e);
