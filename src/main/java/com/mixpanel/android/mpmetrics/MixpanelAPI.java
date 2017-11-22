@@ -1986,8 +1986,6 @@ public class MixpanelAPI {
             // Don't allow super properties or referral properties to override these fields,
             // but DO allow the caller to override them in their given properties.
             final double timeSecondsDouble = (System.currentTimeMillis()) / 1000.0;
-            final long timeSeconds = (long) timeSecondsDouble;
-            messageProps.put("time", timeSeconds);
             messageProps.put("distinct_id", getDistinctId());
 
             if (null != eventBegin) {
