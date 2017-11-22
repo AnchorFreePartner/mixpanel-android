@@ -1,5 +1,6 @@
 package com.mixpanel.android.util;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
@@ -90,7 +91,7 @@ public class HttpService implements RemoteService {
     }
 
     @Override
-    public byte[] performRequest(String endpointUrl, Map<String, Object> params, SSLSocketFactory socketFactory) throws ServiceUnavailableException, IOException {
+    public byte[] performRequest(String endpointUrl, String body, SSLSocketFactory socketFactory) throws ServiceUnavailableException, IOException {
         MPLog.v(LOGTAG, "Attempting request to " + endpointUrl);
 
         byte[] response = null;
@@ -116,19 +117,14 @@ public class HttpService implements RemoteService {
 
                 connection.setConnectTimeout(2000);
                 connection.setReadTimeout(10000);
-                if (null != params) {
-                    Uri.Builder builder = new Uri.Builder();
-                    for (Map.Entry<String, Object> param : params.entrySet()) {
-                        builder.appendQueryParameter(param.getKey(), param.getValue().toString());
-                    }
-                    String query = builder.build().getEncodedQuery();
-
-                    connection.setFixedLengthStreamingMode(query.getBytes().length);
+                if (null != body) {
+                    byte[] bytes = body.getBytes("UTF-8");
+                    connection.setFixedLengthStreamingMode(bytes.length);
                     connection.setDoOutput(true);
                     connection.setRequestMethod("POST");
                     out = connection.getOutputStream();
                     bout = new BufferedOutputStream(out);
-                    bout.write(query.getBytes("UTF-8"));
+                    bout.write(bytes);
                     bout.flush();
                     bout.close();
                     bout = null;
@@ -144,7 +140,9 @@ public class HttpService implements RemoteService {
                 MPLog.d(LOGTAG, "Failure to connect, likely caused by a known issue with Android lib. Retrying.");
                 retries = retries + 1;
             } catch (final IOException e) {
-                if (connection.getResponseCode() >= MIN_UNAVAILABLE_HTTP_RESPONSE_CODE && connection.getResponseCode() <= MAX_UNAVAILABLE_HTTP_RESPONSE_CODE) {
+                if (connection != null
+                        && connection.getResponseCode() >= MIN_UNAVAILABLE_HTTP_RESPONSE_CODE
+                        && connection.getResponseCode() <= MAX_UNAVAILABLE_HTTP_RESPONSE_CODE) {
                     throw new ServiceUnavailableException("Service Unavailable", connection.getHeaderField("Retry-After"));
                 } else {
                     throw e;
@@ -152,11 +150,11 @@ public class HttpService implements RemoteService {
             }
             finally {
                 if (null != bout)
-                    try { bout.close(); } catch (final IOException e) { ; }
+                    try { bout.close(); } catch (final IOException ignored) { }
                 if (null != out)
-                    try { out.close(); } catch (final IOException e) { ; }
+                    try { out.close(); } catch (final IOException ignored) { }
                 if (null != in)
-                    try { in.close(); } catch (final IOException e) { ; }
+                    try { in.close(); } catch (final IOException ignored) { }
                 if (null != connection)
                     connection.disconnect();
             }

@@ -422,19 +422,11 @@ class AnalyticsMessages {
                 while (eventsData != null && queueCount > 0) {
                     final String lastId = eventsData[0];
                     final String rawMessage = eventsData[1];
-
-                    final String encodedData = Base64Coder.encodeString(rawMessage);
-                    final Map<String, Object> params = new HashMap<>();
-                    params.put("data", encodedData);
-                    if (MPConfig.DEBUG) {
-                        params.put("verbose", "1");
-                    }
-
                     boolean deleteEvents = true;
                     for (final String url : urls) {
                         try {
                             final SSLSocketFactory socketFactory = mConfig.getSSLSocketFactory();
-                            final byte[] response = poster.performRequest(url, params, socketFactory);
+                            final byte[] response = poster.performRequest(url, rawMessage, socketFactory);
                             if (null == response) {
                                 deleteEvents = false;
                                 logAboutMessageToMixpanel("Response was null, unexpected failure posting to " + url + ".");
