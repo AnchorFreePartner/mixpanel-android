@@ -548,7 +548,6 @@ class AnalyticsMessages {
                 final JSONObject eventObj = new JSONObject();
                 final JSONObject eventProperties = eventDescription.getProperties();
                 final JSONObject sendProperties = getDefaultEventProperties();
-                sendProperties.put("token", eventDescription.getToken());
                 long ts = System.currentTimeMillis();
                 if (eventProperties != null) {
                     final Iterator<String> iterator = eventProperties.keys();
@@ -563,7 +562,7 @@ class AnalyticsMessages {
                 eventObj.put("event", eventDescription.getEventName().toLowerCase(Locale.ENGLISH)
                         .replace(" ", "_").replace("-", "_"));
                 eventObj.put("ts", ts);
-                eventObj.put("properties", sendProperties);
+                eventObj.put("payload", sendProperties);
                 return eventObj;
             }
 
