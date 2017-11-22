@@ -45,7 +45,7 @@ import java.util.Map;
 
             // We may call track much later, but we'll be tracking something
             // that happened right at moment.
-            properties.put("time", moment / 1000);
+            properties.put("time", moment);
         } catch (JSONException e) {
             MPLog.e(LOGTAG, "Can't format properties from view due to JSON issue", e);
         }
