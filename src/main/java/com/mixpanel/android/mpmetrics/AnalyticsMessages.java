@@ -511,6 +511,7 @@ class AnalyticsMessages {
 
                 // For querying together with data from other libraries
                 ret.put("seq_no", MixpanelAPI.sSequenceNumber++);
+                ret.put(prefix + "platform", "Android");
                 ret.put(prefix + "af_platform", "android");
                 ret.put(prefix + "os", Build.VERSION.SDK_INT);
                 ret.put(prefix + "os_version", Build.VERSION.RELEASE == null ? "UNKNOWN" : Build.VERSION.RELEASE);
@@ -528,7 +529,7 @@ class AnalyticsMessages {
                 ret.put(prefix + "screen_width", displayMetrics.widthPixels);
 
                 final String applicationVersionName = mSystemInformation.getAppVersionName();
-                if (null != applicationVersionName) ret.put(prefix + "app_version", applicationVersionName);
+                if (null != applicationVersionName) ret.put("app_version", applicationVersionName);
 
                 final Integer applicationVersionCode = mSystemInformation.getAppVersionCode();
                 if (null != applicationVersionCode) ret.put(prefix + "app_release", applicationVersionCode);
