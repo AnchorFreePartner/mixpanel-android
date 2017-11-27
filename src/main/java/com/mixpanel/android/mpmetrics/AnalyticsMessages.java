@@ -511,8 +511,8 @@ class AnalyticsMessages {
 
                 // For querying together with data from other libraries
                 ret.put("seq_no", MixpanelAPI.sSequenceNumber++);
-                ret.put(prefix + "platform", "Android");
-                ret.put(prefix + "af_platform", "android");
+                ret.put("platform", "Android");
+                ret.put("af_platform", "android");
                 ret.put(prefix + "os", Build.VERSION.SDK_INT);
                 ret.put(prefix + "os_version", Build.VERSION.RELEASE == null ? "UNKNOWN" : Build.VERSION.RELEASE);
 
