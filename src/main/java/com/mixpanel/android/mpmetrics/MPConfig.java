@@ -8,9 +8,11 @@ import android.os.Bundle;
 
 import android.support.annotation.Nullable;
 import com.mixpanel.android.BuildConfig;
+import com.mixpanel.android.util.HttpService;
 import com.mixpanel.android.util.MPLog;
 import com.mixpanel.android.util.OfflineMode;
 
+import com.mixpanel.android.util.RemoteService;
 import java.security.GeneralSecurityException;
 
 import java.util.List;
@@ -174,6 +176,13 @@ public class MPConfig {
         mSSLSocketFactory = factory;
     }
 
+    public synchronized void setRemoteService(RemoteService remoteService) {
+        mRemoteService = remoteService;
+        if (mRemoteService != null) {
+            mRemoteService.checkIsMixpanelBlocked();
+        }
+    }
+
     /**
      * {@link OfflineMode} allows Mixpanel to be in-sync with client offline internal logic.
      * If you want to integrate your own logic with Mixpanel you'll need to call
@@ -233,6 +242,7 @@ public class MPConfig {
             foundSSLFactory = null;
         }
         mSSLSocketFactory = foundSSLFactory;
+        setRemoteService(new HttpService());
 
         DEBUG = metaData.getBoolean("com.mixpanel.android.MPConfig.EnableDebugLogging", false);
         if (DEBUG) {
@@ -458,6 +468,10 @@ public class MPConfig {
         return mSSLSocketFactory;
     }
 
+    public synchronized RemoteService getRemoteService() {
+        return mRemoteService;
+    }
+
     // This method is thread safe, and assumes that OfflineMode is also thread safe
     public synchronized OfflineMode getOfflineMode() {
         return mOfflineMode;
@@ -516,6 +530,7 @@ public class MPConfig {
 
     // Mutable, with synchronized accessor and mutator
     private SSLSocketFactory mSSLSocketFactory;
+    private RemoteService mRemoteService;
     private OfflineMode mOfflineMode;
 
     private static MPConfig sInstance;

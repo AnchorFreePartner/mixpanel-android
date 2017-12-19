@@ -10,7 +10,6 @@ import android.os.Process;
 import android.os.SystemClock;
 import android.util.DisplayMetrics;
 import com.mixpanel.android.util.Base64Coder;
-import com.mixpanel.android.util.HttpService;
 import com.mixpanel.android.util.MPLog;
 import com.mixpanel.android.util.RemoteService;
 import java.io.IOException;
@@ -46,7 +45,6 @@ class AnalyticsMessages {
         mContext = context;
         mConfig = getConfig(context);
         mWorker = createWorker();
-        getPoster().checkIsMixpanelBlocked();
     }
 
     protected Worker createWorker() {
@@ -127,10 +125,6 @@ class AnalyticsMessages {
 
     protected MPConfig getConfig(Context context) {
         return MPConfig.getInstance(context);
-    }
-
-    protected RemoteService getPoster() {
-        return new HttpService();
     }
 
     ////////////////////////////////////////////////////
@@ -307,7 +301,7 @@ class AnalyticsMessages {
                         sendAllData(mDbAdapter, token);
                         if (shouldCheckDecide && SystemClock.elapsedRealtime() >= mDecideRetryAfter) {
                             try {
-                                mDecideChecker.runDecideCheck(token, getPoster());
+                                mDecideChecker.runDecideCheck(token,  mConfig.getRemoteService());
                             } catch (RemoteService.ServiceUnavailableException e) {
                                 mDecideRetryAfter = SystemClock.elapsedRealtime() + e.getRetryAfter() * 1000;
                             }
@@ -318,7 +312,7 @@ class AnalyticsMessages {
                         mDecideChecker.addDecideCheck(check);
                         if (SystemClock.elapsedRealtime() >= mDecideRetryAfter) {
                             try {
-                                mDecideChecker.runDecideCheck(check.getToken(), getPoster());
+                                mDecideChecker.runDecideCheck(check.getToken(),  mConfig.getRemoteService());
                             } catch (RemoteService.ServiceUnavailableException e) {
                                 mDecideRetryAfter = SystemClock.elapsedRealtime() + e.getRetryAfter() * 1000;
                             }
@@ -344,7 +338,7 @@ class AnalyticsMessages {
                         sendAllData(mDbAdapter, token);
                         if (SystemClock.elapsedRealtime() >= mDecideRetryAfter) {
                             try {
-                                mDecideChecker.runDecideCheck(token, getPoster());
+                                mDecideChecker.runDecideCheck(token,  mConfig.getRemoteService());
                             } catch (RemoteService.ServiceUnavailableException e) {
                                 mDecideRetryAfter = SystemClock.elapsedRealtime() + e.getRetryAfter() * 1000;
                             }
@@ -387,7 +381,7 @@ class AnalyticsMessages {
             }
 
             private void sendAllData(MPDbAdapter dbAdapter, String token) {
-                final RemoteService poster = getPoster();
+                final RemoteService poster =  mConfig.getRemoteService();
                 if (!poster.isOnline(mContext, mConfig.getOfflineMode())) {
                     logAboutMessageToMixpanel("Not flushing data to Mixpanel because the device is not connected to the internet.");
                     return;
@@ -407,7 +401,6 @@ class AnalyticsMessages {
 
             private void sendData(final MPDbAdapter dbAdapter, final String token,
                     final MPDbAdapter.Table table, final List<String> urls) {
-                final RemoteService poster = getPoster();
                 DecideMessages decideMessages = mDecideChecker.getDecideMessages(token);
                 boolean includeAutomaticEvents = true;
                 if (decideMessages == null || decideMessages.isAutomaticEventsEnabled() == null) {
@@ -425,6 +418,7 @@ class AnalyticsMessages {
                     boolean deleteEvents = true;
                     for (final String url : urls) {
                         try {
+                            final RemoteService poster = mConfig.getRemoteService();
                             final SSLSocketFactory socketFactory = mConfig.getSSLSocketFactory();
                             final byte[] response = poster.performRequest(url, rawMessage, socketFactory);
                             if (null == response) {
