@@ -9,18 +9,19 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import com.mixpanel.android.viewcrawler.GestureTracker;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 @TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
 /* package */ class MixpanelActivityLifecycleCallbacks implements Application.ActivityLifecycleCallbacks {
+    public static final int CHECK_DELAY = 500;
+    private static Double sStartSessionTime;
+    private final MixpanelAPI mMpInstance;
+    private final MPConfig mConfig;
     private Handler mHandler = new Handler(Looper.getMainLooper());
     private Runnable check;
     private boolean mIsForeground = true;
     private boolean mPaused = true;
-    private static Double sStartSessionTime;
-    public static final int CHECK_DELAY = 500;
 
     public MixpanelActivityLifecycleCallbacks(MixpanelAPI mpInstance, MPConfig config) {
         mMpInstance = mpInstance;
@@ -37,11 +38,11 @@ import org.json.JSONObject;
         if (android.os.Build.VERSION.SDK_INT >= MPConfig.UI_FEATURES_MIN_API && mConfig.getAutoShowMixpanelUpdates()) {
             mMpInstance.getPeople().showNotificationIfAvailable(activity);
         }
-        new GestureTracker(mMpInstance, activity);
     }
 
     @Override
-    public void onActivityCreated(Activity activity, Bundle savedInstanceState) { }
+    public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
+    }
 
     @Override
     public void onActivityPaused(final Activity activity) {
@@ -53,10 +54,12 @@ import org.json.JSONObject;
     }
 
     @Override
-    public void onActivityDestroyed(Activity activity) { }
+    public void onActivityDestroyed(Activity activity) {
+    }
 
     @Override
-    public void onActivitySaveInstanceState(Activity activity, Bundle outState) { }
+    public void onActivitySaveInstanceState(Activity activity, Bundle outState) {
+    }
 
     @Override
     public void onActivityResumed(Activity activity) {
@@ -79,7 +82,8 @@ import org.json.JSONObject;
     }
 
     @Override
-    public void onActivityStopped(Activity activity) { }
+    public void onActivityStopped(Activity activity) {
+    }
 
     protected boolean isInForeground() {
         return mIsForeground;
@@ -117,7 +121,4 @@ import org.json.JSONObject;
             // https://github.com/mixpanel/mixpanel-android/issues/251
         }
     }
-
-    private final MixpanelAPI mMpInstance;
-    private final MPConfig mConfig;
 }
