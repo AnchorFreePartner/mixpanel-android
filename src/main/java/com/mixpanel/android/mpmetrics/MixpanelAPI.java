@@ -289,22 +289,6 @@ public class MixpanelAPI {
             track("app_open", null);
         }
 
-        if (!mPersistentIdentity.isFirstIntegration(mToken)) {
-            try {
-                final JSONObject messageProps = new JSONObject();
-                messageProps.put("distinct_id", token);
-
-                final AnalyticsMessages.EventDescription eventDescription = new AnalyticsMessages
-                        .EventDescription(MPConfig.getSpPrefix() + "Integration", messageProps,
-                        "85053bf24bba75239b16a601d9387e17", false);
-                mMessages.eventsMessage(eventDescription);
-                mMessages.postToServer(new AnalyticsMessages
-                        .FlushDescription("85053bf24bba75239b16a601d9387e17", false));
-
-                mPersistentIdentity.setIsIntegrated(mToken);
-            } catch (JSONException ignored) { }
-        }
-
         mUpdatesFromMixpanel.startUpdates();
 
         ExceptionHandler.init();
