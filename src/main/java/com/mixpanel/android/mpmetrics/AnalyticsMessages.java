@@ -415,21 +415,20 @@ class AnalyticsMessages {
                 while (eventsData != null && queueCount > 0) {
                     final String lastId = eventsData[0];
                     final String rawMessage = eventsData[1];
-                    boolean deleteEvents = true;
+                    boolean deleteEvents = false;
                     for (final String url : urls) {
                         try {
                             final RemoteService poster = mConfig.getRemoteService();
                             final SSLSocketFactory socketFactory = mConfig.getSSLSocketFactory();
                             final byte[] response = poster.performRequest(url, rawMessage, socketFactory);
                             if (null == response) {
-                                deleteEvents = false;
                                 logAboutMessageToMixpanel("Response was null, unexpected failure posting to " + url + ".");
                             } else {
                                 deleteEvents = true; // Delete events on any successful post, regardless of 1 or 0 response
                                 String parsedResponse;
                                 try {
                                     parsedResponse = new String(response, "UTF-8");
-                                } catch (UnsupportedEncodingException e) {
+                                } catch (final UnsupportedEncodingException e) {
                                     throw new RuntimeException("UTF not supported on this platform?", e);
                                 }
                                 if (mFailedRetries > 0) {
@@ -443,8 +442,10 @@ class AnalyticsMessages {
                             }
                         } catch (final OutOfMemoryError e) {
                             MPLog.e(LOGTAG, "Out of memory when posting to " + url + ".", e);
+                            deleteEvents = false;
                         } catch (final MalformedURLException e) {
                             MPLog.e(LOGTAG, "Cannot interpret " + url + " as a URL.", e);
+                            deleteEvents = false;
                         } catch (final RemoteService.ServiceUnavailableException e) {
                             logAboutMessageToMixpanel("Cannot post message to " + url + ".", e);
                             deleteEvents = false;
