@@ -133,8 +133,10 @@ public class HttpService implements RemoteService {
                     out = null;
                 }
                 in = connection.getInputStream();
+
                 final String responseMessage = streamToString(in);
-                MPLog.d(LOGTAG, responseMessage);
+                MPLog.d(LOGTAG, "responseMessage = '" + connection.getResponseMessage()
+                        + "'\nresponseCode = '" + connection.getResponseCode() + "'");
                 response = responseMessage.getBytes();
                 in.close();
                 in = null;
