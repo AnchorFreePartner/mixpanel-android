@@ -7,7 +7,6 @@ import android.net.NetworkInfo;
 import android.support.annotation.NonNull;
 import com.mixpanel.android.mpmetrics.MPConfig;
 import java.io.BufferedOutputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,21 +27,6 @@ public class HttpService implements RemoteService {
     private static final int MAX_UNAVAILABLE_HTTP_RESPONSE_CODE = 599;
     private static final String LOGTAG = "MixpanelAPI.Message";
     private static boolean sIsMixpanelBlocked;
-
-    private static byte[] slurp(final InputStream inputStream)
-            throws IOException {
-        final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-
-        int nRead;
-        byte[] data = new byte[8192];
-
-        while ((nRead = inputStream.read(data, 0, data.length)) != -1) {
-            buffer.write(data, 0, nRead);
-        }
-
-        buffer.flush();
-        return buffer.toByteArray();
-    }
 
     @Override
     public void checkIsMixpanelBlocked() {
@@ -149,8 +133,9 @@ public class HttpService implements RemoteService {
                     out = null;
                 }
                 in = connection.getInputStream();
-                MPLog.d(LOGTAG, streamToString(in));
-                response = slurp(in);
+                final String responseMessage = streamToString(in);
+                MPLog.d(LOGTAG, responseMessage);
+                response = responseMessage.getBytes();
                 in.close();
                 in = null;
                 succeeded = true;
