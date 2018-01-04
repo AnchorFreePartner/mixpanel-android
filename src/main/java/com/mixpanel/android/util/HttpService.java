@@ -4,12 +4,14 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.support.annotation.NonNull;
 import com.mixpanel.android.mpmetrics.MPConfig;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
@@ -147,6 +149,7 @@ public class HttpService implements RemoteService {
                     out = null;
                 }
                 in = connection.getInputStream();
+                MPLog.d(LOGTAG, streamToString(in));
                 response = slurp(in);
                 in.close();
                 in = null;
@@ -187,5 +190,25 @@ public class HttpService implements RemoteService {
             MPLog.v(LOGTAG, "Could not connect to Mixpanel service after three retries.");
         }
         return response;
+    }
+
+    @NonNull
+    private String streamToString(@NonNull final InputStream is) {
+        final StringBuilder out = new StringBuilder();
+        final char[] buffer = new char[1024];
+        try {
+            final InputStreamReader in = new InputStreamReader(is);
+            int read;
+            while ((read = in.read(buffer, 0, buffer.length)) >= 0) {
+                out.append(buffer, 0, read);
+            }
+            try {
+                in.close();
+            } catch (Exception ignore) { }
+        } catch (Throwable t) {
+            MPLog.w(LOGTAG, t.getMessage(), t);
+            return "";
+        }
+        return out.toString();
     }
 }
