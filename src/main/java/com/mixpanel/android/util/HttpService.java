@@ -4,10 +4,7 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
-import android.net.Uri;
-
 import com.mixpanel.android.mpmetrics.MPConfig;
-
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
@@ -17,8 +14,6 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.URL;
-import java.util.Map;
-
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLSocketFactory;
 
@@ -27,9 +22,25 @@ import javax.net.ssl.SSLSocketFactory;
  */
 public class HttpService implements RemoteService {
 
-    private static boolean sIsMixpanelBlocked;
     private static final int MIN_UNAVAILABLE_HTTP_RESPONSE_CODE = HttpURLConnection.HTTP_INTERNAL_ERROR;
     private static final int MAX_UNAVAILABLE_HTTP_RESPONSE_CODE = 599;
+    private static final String LOGTAG = "MixpanelAPI.Message";
+    private static boolean sIsMixpanelBlocked;
+
+    private static byte[] slurp(final InputStream inputStream)
+            throws IOException {
+        final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+
+        int nRead;
+        byte[] data = new byte[8192];
+
+        while ((nRead = inputStream.read(data, 0, data.length)) != -1) {
+            buffer.write(data, 0, nRead);
+        }
+
+        buffer.flush();
+        return buffer.toByteArray();
+    }
 
     @Override
     public void checkIsMixpanelBlocked() {
@@ -45,14 +56,14 @@ public class HttpService implements RemoteService {
                     if (sIsMixpanelBlocked) {
                         MPLog.v(LOGTAG, "AdBlocker is enabled. Won't be able to use Mixpanel services.");
                     }
-                } catch (Exception e) {
-                }
+                } catch (Exception ignored) { }
             }
         });
 
         t.start();
     }
 
+    @SuppressLint("MissingPermission")
     @Override
     public boolean isOnline(Context context, OfflineMode offlineMode) {
         if (sIsMixpanelBlocked) return false;
@@ -62,7 +73,7 @@ public class HttpService implements RemoteService {
         try {
             final ConnectivityManager cm =
                     (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
-            final NetworkInfo netInfo = cm.getActiveNetworkInfo();
+            final NetworkInfo netInfo = cm != null ? cm.getActiveNetworkInfo() : null;
             if (netInfo == null) {
                 isOnline = true;
                 MPLog.v(LOGTAG, "A default network has not been set so we cannot be certain whether we are offline");
@@ -122,6 +133,10 @@ public class HttpService implements RemoteService {
                     connection.setFixedLengthStreamingMode(bytes.length);
                     connection.setDoOutput(true);
                     connection.setRequestMethod("POST");
+                    if (MPConfig.DEBUG) {
+                        connection.setRequestProperty("X-AF-TEST", "1");
+                    }
+                    connection.setRequestProperty("X-AF-CLIENT-TS", String.valueOf(System.currentTimeMillis()));
                     out = connection.getOutputStream();
                     bout = new BufferedOutputStream(out);
                     bout.write(bytes);
@@ -147,16 +162,25 @@ public class HttpService implements RemoteService {
                 } else {
                     throw e;
                 }
-            }
-            finally {
-                if (null != bout)
-                    try { bout.close(); } catch (final IOException ignored) { }
-                if (null != out)
-                    try { out.close(); } catch (final IOException ignored) { }
-                if (null != in)
-                    try { in.close(); } catch (final IOException ignored) { }
-                if (null != connection)
+            } finally {
+                if (null != bout) {
+                    try {
+                        bout.close();
+                    } catch (final IOException ignored) { }
+                }
+                if (null != out) {
+                    try {
+                        out.close();
+                    } catch (final IOException ignored) { }
+                }
+                if (null != in) {
+                    try {
+                        in.close();
+                    } catch (final IOException ignored) { }
+                }
+                if (null != connection) {
                     connection.disconnect();
+                }
             }
         }
         if (retries >= 3) {
@@ -164,21 +188,4 @@ public class HttpService implements RemoteService {
         }
         return response;
     }
-
-    private static byte[] slurp(final InputStream inputStream)
-            throws IOException {
-        final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-
-        int nRead;
-        byte[] data = new byte[8192];
-
-        while ((nRead = inputStream.read(data, 0, data.length)) != -1) {
-            buffer.write(data, 0, nRead);
-        }
-
-        buffer.flush();
-        return buffer.toByteArray();
-    }
-
-    private static final String LOGTAG = "MixpanelAPI.Message";
 }
