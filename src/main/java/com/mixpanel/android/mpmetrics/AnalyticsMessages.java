@@ -9,11 +9,10 @@ import android.os.Message;
 import android.os.Process;
 import android.os.SystemClock;
 import android.util.DisplayMetrics;
-import com.mixpanel.android.util.Base64Coder;
+import com.mixpanel.android.util.HttpResponse;
 import com.mixpanel.android.util.MPLog;
 import com.mixpanel.android.util.RemoteService;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -28,6 +27,8 @@ import javax.net.ssl.SSLSocketFactory;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import static java.net.HttpURLConnection.HTTP_OK;
+
 /**
  * Manage communication of events with the internal database and the Mixpanel servers.
  *
@@ -38,6 +39,22 @@ import org.json.JSONObject;
 @SuppressWarnings("WeakerAccess")
 class AnalyticsMessages {
 
+    // Messages for our thread
+    private static final int ENQUEUE_PEOPLE = 0; // submit events and people data
+    private static final int ENQUEUE_EVENTS = 1; // push given JSON message to people DB
+    private static final int FLUSH_QUEUE = 2; // push given JSON message to events DB
+    private static final int KILL_WORKER = 5; // Hard-kill the worker thread, discarding all events on the event queue. This is for testing, or disasters.
+    private static final int INSTALL_DECIDE_CHECK = 12; // Run this DecideCheck at intervals until it isDestroyed()
+    private static final String LOGTAG = "MixpanelAPI.Messages";
+    private static final Map<Context, AnalyticsMessages> sInstances = new HashMap<>();
+    protected final Context mContext;
+
+    /////////////////////////////////////////////////////////
+    // For testing, to allow for Mocking.
+    protected final MPConfig mConfig;
+    // Used across thread boundaries
+    private final Worker mWorker;
+
     /**
      * Do not call directly. You should call AnalyticsMessages.getInstance()
      */
@@ -47,22 +64,20 @@ class AnalyticsMessages {
         mWorker = createWorker();
     }
 
-    protected Worker createWorker() {
-        return new Worker();
-    }
+    ////////////////////////////////////////////////////
 
     /**
      * Use this to get an instance of AnalyticsMessages instead of creating one directly
      * for yourself.
      *
      * @param messageContext should be the Main Activity of the application
-     *     associated with these messages.
+     * associated with these messages.
      */
     public static AnalyticsMessages getInstance(final Context messageContext) {
         synchronized (sInstances) {
             final Context appContext = messageContext.getApplicationContext();
             AnalyticsMessages ret;
-            if (! sInstances.containsKey(appContext)) {
+            if (!sInstances.containsKey(appContext)) {
                 ret = new AnalyticsMessages(appContext);
                 sInstances.put(appContext, ret);
             } else {
@@ -70,6 +85,10 @@ class AnalyticsMessages {
             }
             return ret;
         }
+    }
+
+    protected Worker createWorker() {
+        return new Worker();
     }
 
     public void eventsMessage(final EventDescription eventDescription) {
@@ -112,12 +131,10 @@ class AnalyticsMessages {
         mWorker.runMessage(m);
     }
 
-    /////////////////////////////////////////////////////////
-    // For testing, to allow for Mocking.
-
     /* package */ boolean isDead() {
         return mWorker.isDead();
     }
+    /////////////////////////////////////////////////////////
 
     protected MPDbAdapter makeDbAdapter(Context context) {
         return MPDbAdapter.getInstance(context);
@@ -127,9 +144,25 @@ class AnalyticsMessages {
         return MPConfig.getInstance(context);
     }
 
-    ////////////////////////////////////////////////////
+    // Sends a message if and only if we are running with Mixpanel Message log enabled.
+    // Will be called from the Mixpanel thread.
+    private void logAboutMessageToMixpanel(String message) {
+        MPLog.v(LOGTAG, message + " (Thread " + Thread.currentThread().getId() + ")");
+    }
+
+    private void logAboutMessageToMixpanel(String message, Throwable e) {
+        MPLog.v(LOGTAG, message + " (Thread " + Thread.currentThread().getId() + ")", e);
+    }
+
+    public long getTrackEngageRetryAfter() {
+        return ((Worker.AnalyticsMessageHandler) mWorker.mHandler).getTrackEngageRetryAfter();
+    }
 
     static class EventDescription extends MixpanelDescription {
+        private final String mEventName;
+        private final JSONObject mProperties;
+        private final boolean mIsAutomatic;
+
         public EventDescription(String eventName, JSONObject properties, String token, boolean isAutomatic) {
             super(token);
             mEventName = eventName;
@@ -148,13 +181,11 @@ class AnalyticsMessages {
         public boolean isAutomatic() {
             return mIsAutomatic;
         }
-
-        private final String mEventName;
-        private final JSONObject mProperties;
-        private final boolean mIsAutomatic;
     }
 
     static class PeopleDescription extends MixpanelDescription {
+        private final JSONObject message;
+
         public PeopleDescription(JSONObject message, String token) {
             super(token);
             this.message = message;
@@ -168,11 +199,11 @@ class AnalyticsMessages {
         public JSONObject getMessage() {
             return message;
         }
-
-        private final JSONObject message;
     }
 
     static class FlushDescription extends MixpanelDescription {
+        private final boolean checkDecide;
+
         public FlushDescription(String token) {
             this(token, true);
         }
@@ -182,15 +213,14 @@ class AnalyticsMessages {
             this.checkDecide = checkDecide;
         }
 
-
         public boolean shouldCheckDecide() {
             return checkDecide;
         }
-
-        private final boolean checkDecide;
     }
 
     static class MixpanelDescription {
+        private final String mToken;
+
         public MixpanelDescription(String token) {
             this.mToken = token;
         }
@@ -198,36 +228,31 @@ class AnalyticsMessages {
         public String getToken() {
             return mToken;
         }
-
-        private final String mToken;
-    }
-
-    // Sends a message if and only if we are running with Mixpanel Message log enabled.
-    // Will be called from the Mixpanel thread.
-    private void logAboutMessageToMixpanel(String message) {
-        MPLog.v(LOGTAG, message + " (Thread " + Thread.currentThread().getId() + ")");
-    }
-
-    private void logAboutMessageToMixpanel(String message, Throwable e) {
-        MPLog.v(LOGTAG, message + " (Thread " + Thread.currentThread().getId() + ")", e);
     }
 
     // Worker will manage the (at most single) IO thread associated with
     // this AnalyticsMessages instance.
     // XXX: Worker class is unnecessary, should be just a subclass of HandlerThread
     class Worker {
+        private final Object mHandlerLock = new Object();
+        private Handler mHandler;
+        private long mFlushCount = 0;
+        private long mAveFlushFrequency = 0;
+        private long mLastFlushTime = -1;
+        private SystemInformation mSystemInformation;
+
         public Worker() {
             mHandler = restartWorkerThread();
         }
 
         public boolean isDead() {
-            synchronized(mHandlerLock) {
+            synchronized (mHandlerLock) {
                 return mHandler == null;
             }
         }
 
         public void runMessage(Message msg) {
-            synchronized(mHandlerLock) {
+            synchronized (mHandlerLock) {
                 if (mHandler == null) {
                     // We died under suspicious circumstances. Don't try to send any more events.
                     logAboutMessageToMixpanel("Dead mixpanel worker dropping a message: " + msg.what);
@@ -245,7 +270,31 @@ class AnalyticsMessages {
             return new AnalyticsMessageHandler(thread.getLooper());
         }
 
+        private void updateFlushFrequency() {
+            final long now = System.currentTimeMillis();
+            final long newFlushCount = mFlushCount + 1;
+
+            if (mLastFlushTime > 0) {
+                final long flushInterval = now - mLastFlushTime;
+                final long totalFlushTime = flushInterval + (mAveFlushFrequency * mFlushCount);
+                mAveFlushFrequency = totalFlushTime / newFlushCount;
+
+                final long seconds = mAveFlushFrequency / 1000;
+                logAboutMessageToMixpanel("Average send frequency approximately " + seconds + " seconds.");
+            }
+
+            mLastFlushTime = now;
+            mFlushCount = newFlushCount;
+        }
+
         class AnalyticsMessageHandler extends Handler {
+            private final DecideChecker mDecideChecker;
+            private final long mFlushInterval;
+            private MPDbAdapter mDbAdapter;
+            private long mDecideRetryAfter;
+            private long mTrackEngageRetryAfter;
+            private int mFailedRetries;
+
             public AnalyticsMessageHandler(Looper looper) {
                 super(looper);
                 mDbAdapter = null;
@@ -301,7 +350,7 @@ class AnalyticsMessages {
                         sendAllData(mDbAdapter, token);
                         if (shouldCheckDecide && SystemClock.elapsedRealtime() >= mDecideRetryAfter) {
                             try {
-                                mDecideChecker.runDecideCheck(token,  mConfig.getRemoteService());
+                                mDecideChecker.runDecideCheck(token, mConfig.getRemoteService());
                             } catch (RemoteService.ServiceUnavailableException e) {
                                 mDecideRetryAfter = SystemClock.elapsedRealtime() + e.getRetryAfter() * 1000;
                             }
@@ -312,14 +361,14 @@ class AnalyticsMessages {
                         mDecideChecker.addDecideCheck(check);
                         if (SystemClock.elapsedRealtime() >= mDecideRetryAfter) {
                             try {
-                                mDecideChecker.runDecideCheck(check.getToken(),  mConfig.getRemoteService());
+                                mDecideChecker.runDecideCheck(check.getToken(), mConfig.getRemoteService());
                             } catch (RemoteService.ServiceUnavailableException e) {
                                 mDecideRetryAfter = SystemClock.elapsedRealtime() + e.getRetryAfter() * 1000;
                             }
                         }
                     } else if (msg.what == KILL_WORKER) {
                         MPLog.w(LOGTAG, "Worker received a hard kill. Dumping all events and force-killing. Thread id " + Thread.currentThread().getId());
-                        synchronized(mHandlerLock) {
+                        synchronized (mHandlerLock) {
                             mDbAdapter.deleteDB();
                             mHandler = null;
                             final Looper looper = Looper.myLooper();
@@ -338,7 +387,7 @@ class AnalyticsMessages {
                         sendAllData(mDbAdapter, token);
                         if (SystemClock.elapsedRealtime() >= mDecideRetryAfter) {
                             try {
-                                mDecideChecker.runDecideCheck(token,  mConfig.getRemoteService());
+                                mDecideChecker.runDecideCheck(token, mConfig.getRemoteService());
                             } catch (RemoteService.ServiceUnavailableException e) {
                                 mDecideRetryAfter = SystemClock.elapsedRealtime() + e.getRetryAfter() * 1000;
                             }
@@ -381,7 +430,7 @@ class AnalyticsMessages {
             }
 
             private void sendAllData(MPDbAdapter dbAdapter, String token) {
-                final RemoteService poster =  mConfig.getRemoteService();
+                final RemoteService poster = mConfig.getRemoteService();
                 if (!poster.isOnline(mContext, mConfig.getOfflineMode())) {
                     logAboutMessageToMixpanel("Not flushing data to Mixpanel because the device is not connected to the internet.");
                     return;
@@ -420,24 +469,18 @@ class AnalyticsMessages {
                         try {
                             final RemoteService poster = mConfig.getRemoteService();
                             final SSLSocketFactory socketFactory = mConfig.getSSLSocketFactory();
-                            final byte[] response = poster.performRequest(url, rawMessage, socketFactory);
+                            final HttpResponse response = poster.performRequest(url, rawMessage, socketFactory);
                             if (null == response) {
                                 logAboutMessageToMixpanel("Response was null, unexpected failure posting to " + url + ".");
                             } else {
-                                deleteEvents = true; // Delete events on any successful post, regardless of 1 or 0 response
-                                String parsedResponse;
-                                try {
-                                    parsedResponse = new String(response, "UTF-8");
-                                } catch (final UnsupportedEncodingException e) {
-                                    throw new RuntimeException("UTF not supported on this platform?", e);
-                                }
+                                deleteEvents = response.getResponseCode() == HTTP_OK; // Delete events on any successful post, regardless of 1 or 0 response
                                 if (mFailedRetries > 0) {
                                     mFailedRetries = 0;
                                     removeMessages(FLUSH_QUEUE, token);
                                 }
 
                                 logAboutMessageToMixpanel("Successfully posted to " + url + ": \n" + rawMessage);
-                                logAboutMessageToMixpanel("Response was " + parsedResponse);
+                                logAboutMessageToMixpanel("Response was " + response.getResponseMessage());
                                 break;
                             }
                         } catch (final OutOfMemoryError e) {
@@ -461,7 +504,7 @@ class AnalyticsMessages {
                         dbAdapter.cleanupEvents(lastId, table, token, includeAutomaticEvents);
                     } else {
                         removeMessages(FLUSH_QUEUE, token);
-                        mTrackEngageRetryAfter = Math.max((long)Math.pow(2, mFailedRetries) * 60000, mTrackEngageRetryAfter);
+                        mTrackEngageRetryAfter = Math.max((long) Math.pow(2, mFailedRetries) * 60000, mTrackEngageRetryAfter);
                         mTrackEngageRetryAfter = Math.min(mTrackEngageRetryAfter, 10 * 60 * 1000); // limit 10 min
                         final Message flushMessage = Message.obtain();
                         flushMessage.what = FLUSH_QUEUE;
@@ -527,7 +570,9 @@ class AnalyticsMessages {
                 if (null != applicationVersionName) ret.put("app_version", applicationVersionName);
 
                 final Integer applicationVersionCode = mSystemInformation.getAppVersionCode();
-                if (null != applicationVersionCode) ret.put(prefix + "app_release", applicationVersionCode);
+                if (null != applicationVersionCode) {
+                    ret.put(prefix + "app_release", applicationVersionCode);
+                }
 
                 final String carrier = mSystemInformation.getCurrentNetworkOperator();
                 if (null != carrier) {
@@ -561,59 +606,6 @@ class AnalyticsMessages {
                 eventObj.put("payload", sendProperties);
                 return eventObj;
             }
-
-            private MPDbAdapter mDbAdapter;
-            private final DecideChecker mDecideChecker;
-            private final long mFlushInterval;
-            private long mDecideRetryAfter;
-            private long mTrackEngageRetryAfter;
-            private int mFailedRetries;
         }// AnalyticsMessageHandler
-
-        private void updateFlushFrequency() {
-            final long now = System.currentTimeMillis();
-            final long newFlushCount = mFlushCount + 1;
-
-            if (mLastFlushTime > 0) {
-                final long flushInterval = now - mLastFlushTime;
-                final long totalFlushTime = flushInterval + (mAveFlushFrequency * mFlushCount);
-                mAveFlushFrequency = totalFlushTime / newFlushCount;
-
-                final long seconds = mAveFlushFrequency / 1000;
-                logAboutMessageToMixpanel("Average send frequency approximately " + seconds + " seconds.");
-            }
-
-            mLastFlushTime = now;
-            mFlushCount = newFlushCount;
-        }
-
-        private final Object mHandlerLock = new Object();
-        private Handler mHandler;
-        private long mFlushCount = 0;
-        private long mAveFlushFrequency = 0;
-        private long mLastFlushTime = -1;
-        private SystemInformation mSystemInformation;
     }
-
-    public long getTrackEngageRetryAfter() {
-        return ((Worker.AnalyticsMessageHandler) mWorker.mHandler).getTrackEngageRetryAfter();
-    }
-    /////////////////////////////////////////////////////////
-
-    // Used across thread boundaries
-    private final Worker mWorker;
-    protected final Context mContext;
-    protected final MPConfig mConfig;
-
-    // Messages for our thread
-    private static final int ENQUEUE_PEOPLE = 0; // submit events and people data
-    private static final int ENQUEUE_EVENTS = 1; // push given JSON message to people DB
-    private static final int FLUSH_QUEUE = 2; // push given JSON message to events DB
-    private static final int KILL_WORKER = 5; // Hard-kill the worker thread, discarding all events on the event queue. This is for testing, or disasters.
-    private static final int INSTALL_DECIDE_CHECK = 12; // Run this DecideCheck at intervals until it isDestroyed()
-
-    private static final String LOGTAG = "MixpanelAPI.Messages";
-
-    private static final Map<Context, AnalyticsMessages> sInstances = new HashMap<>();
-
 }

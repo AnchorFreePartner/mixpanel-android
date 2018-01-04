@@ -1,23 +1,20 @@
 package com.mixpanel.android.util;
 
 import android.content.Context;
-
-
 import java.io.IOException;
-import java.util.Map;
-
 import javax.net.ssl.SSLSocketFactory;
-
 
 public interface RemoteService {
     boolean isOnline(Context context, OfflineMode offlineMode);
 
     void checkIsMixpanelBlocked();
 
-    byte[] performRequest(String endpointUrl, String body, SSLSocketFactory socketFactory)
+    HttpResponse performRequest(String endpointUrl, String body, SSLSocketFactory socketFactory)
             throws ServiceUnavailableException, IOException;
 
     class ServiceUnavailableException extends Exception {
+        private final int mRetryAfter;
+
         public ServiceUnavailableException(String message, String strRetryAfter) {
             super(message);
             int retry;
@@ -32,7 +29,5 @@ public interface RemoteService {
         public int getRetryAfter() {
             return mRetryAfter;
         }
-
-        private final int mRetryAfter;
     }
 }
