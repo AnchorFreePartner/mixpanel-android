@@ -9,6 +9,7 @@ import android.os.Build;
 import android.view.Display;
 import android.view.WindowManager;
 
+import com.mixpanel.android.util.HttpResponse;
 import com.mixpanel.android.util.ImageStore;
 import com.mixpanel.android.util.MPLog;
 import com.mixpanel.android.util.RemoteService;
@@ -298,7 +299,7 @@ import javax.net.ssl.SSLSocketFactory;
             return null;
         }
 
-        byte[] response = null;
+        HttpResponse response = null;
         try {
             final SSLSocketFactory socketFactory = config.getSSLSocketFactory();
             response = poster.performRequest(url, null, socketFactory);
@@ -312,7 +313,7 @@ import javax.net.ssl.SSLSocketFactory;
             MPLog.e(LOGTAG, "Out of memory when getting to " + url + ".", e);
         }
 
-        return response;
+        return response != null ? response.getResponseMessage().getBytes() : "".getBytes();
     }
 
     public DecideMessages getDecideMessages(String token) {
