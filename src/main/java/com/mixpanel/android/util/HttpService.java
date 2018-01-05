@@ -22,6 +22,14 @@ public class HttpService implements RemoteService {
 
     private static final String LOGTAG = "MixpanelAPI.Message";
     private static boolean sIsMixpanelBlocked;
+    @NonNull private final OkHttpClient okHttpClient;
+
+    public HttpService() {
+        okHttpClient = new OkHttpClient.Builder()
+                .retryOnConnectionFailure(false)
+                .connectTimeout(10L, TimeUnit.SECONDS)
+                .build();
+    }
 
     @Override
     public void checkIsMixpanelBlocked() {
@@ -87,10 +95,6 @@ public class HttpService implements RemoteService {
     public RemoteResponse performRequest(@NonNull final String endpointUrl, @NonNull final String postBody)
             throws ServiceUnavailableException, IOException {
         MPLog.v(LOGTAG, "Attempting request to " + endpointUrl);
-        final OkHttpClient okHttpClient = new OkHttpClient.Builder()
-                .retryOnConnectionFailure(false)
-                .connectTimeout(10L, TimeUnit.SECONDS)
-                .build();
         final RequestBody requestBody = RequestBody.create(null, postBody);
         final Request request = new Request.Builder()
                 .addHeader("X-AF-CLIENT-TS", String.valueOf(System.currentTimeMillis()))
