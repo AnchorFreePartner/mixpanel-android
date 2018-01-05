@@ -9,8 +9,8 @@ import android.os.Message;
 import android.os.Process;
 import android.os.SystemClock;
 import android.util.DisplayMetrics;
-import com.mixpanel.android.util.HttpResponse;
 import com.mixpanel.android.util.MPLog;
+import com.mixpanel.android.util.RemoteResponse;
 import com.mixpanel.android.util.RemoteService;
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -23,7 +23,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import javax.net.ssl.SSLSocketFactory;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -468,21 +467,16 @@ class AnalyticsMessages {
                     for (final String url : urls) {
                         try {
                             final RemoteService poster = mConfig.getRemoteService();
-                            final SSLSocketFactory socketFactory = mConfig.getSSLSocketFactory();
-                            final HttpResponse response = poster.performRequest(url, rawMessage, socketFactory);
-                            if (null == response) {
-                                logAboutMessageToMixpanel("Response was null, unexpected failure posting to " + url + ".");
-                            } else {
-                                deleteEvents = response.getResponseCode() == HTTP_OK; // Delete events on any successful post, regardless of 1 or 0 response
-                                if (mFailedRetries > 0) {
-                                    mFailedRetries = 0;
-                                    removeMessages(FLUSH_QUEUE, token);
-                                }
-
-                                logAboutMessageToMixpanel("Successfully posted to " + url + ": \n" + rawMessage);
-                                logAboutMessageToMixpanel("Response was " + response.getResponseMessage());
-                                break;
+                            final RemoteResponse response = poster.performRequest(url, rawMessage);
+                            deleteEvents = response.getResponseCode() == HTTP_OK; // Delete events on any successful post, regardless of 1 or 0 response
+                            if (mFailedRetries > 0) {
+                                mFailedRetries = 0;
+                                removeMessages(FLUSH_QUEUE, token);
                             }
+
+                            logAboutMessageToMixpanel("Posted to " + url + ": \n" + rawMessage);
+                            logAboutMessageToMixpanel("Response was " + response.toString());
+                            break;
                         } catch (final OutOfMemoryError e) {
                             MPLog.e(LOGTAG, "Out of memory when posting to " + url + ".", e);
                             deleteEvents = false;

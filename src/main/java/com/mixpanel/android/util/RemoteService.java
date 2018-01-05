@@ -1,15 +1,16 @@
 package com.mixpanel.android.util;
 
 import android.content.Context;
+import android.support.annotation.NonNull;
 import java.io.IOException;
-import javax.net.ssl.SSLSocketFactory;
 
 public interface RemoteService {
     boolean isOnline(Context context, OfflineMode offlineMode);
 
     void checkIsMixpanelBlocked();
 
-    HttpResponse performRequest(String endpointUrl, String body, SSLSocketFactory socketFactory)
+    @NonNull
+    RemoteResponse performRequest(@NonNull final String endpointUrl, @NonNull final String postBody)
             throws ServiceUnavailableException, IOException;
 
     class ServiceUnavailableException extends Exception {

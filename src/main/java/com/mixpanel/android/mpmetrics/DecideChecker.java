@@ -3,13 +3,12 @@ package com.mixpanel.android.mpmetrics;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.graphics.Color;
 import android.graphics.Point;
 import android.os.Build;
 import android.view.Display;
 import android.view.WindowManager;
 
-import com.mixpanel.android.util.HttpResponse;
+import com.mixpanel.android.util.RemoteResponse;
 import com.mixpanel.android.util.ImageStore;
 import com.mixpanel.android.util.MPLog;
 import com.mixpanel.android.util.RemoteService;
@@ -26,7 +25,6 @@ import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -299,10 +297,9 @@ import javax.net.ssl.SSLSocketFactory;
             return null;
         }
 
-        HttpResponse response = null;
+        byte[] response = null;
         try {
-            final SSLSocketFactory socketFactory = config.getSSLSocketFactory();
-            response = poster.performRequest(url, null, socketFactory);
+            response = poster.performRequest(url, "").getResponseMessage().getBytes();
         } catch (final MalformedURLException e) {
             MPLog.e(LOGTAG, "Cannot interpret " + url + " as a URL.", e);
         } catch (final FileNotFoundException e) {
@@ -313,7 +310,7 @@ import javax.net.ssl.SSLSocketFactory;
             MPLog.e(LOGTAG, "Out of memory when getting to " + url + ".", e);
         }
 
-        return response != null ? response.getResponseMessage().getBytes() : "".getBytes();
+        return response;
     }
 
     public DecideMessages getDecideMessages(String token) {
