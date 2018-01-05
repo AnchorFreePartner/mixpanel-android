@@ -70,35 +70,32 @@ public class ImageStore {
 
     public File getImageFile(String url) throws CantGetImageException {
         final File file = storedFile(url);
-        byte[] bytes = null;
 
         if (file == null || !file.exists()) {
+            byte[] bytes;
             try {
-                final SSLSocketFactory factory = mConfig.getSSLSocketFactory();
-                bytes = mPoster.performRequest(url, null, factory);
+                bytes = mPoster.performRequest(url, "").getResponseMessage().getBytes();
             } catch (IOException e) {
                 throw new CantGetImageException("Can't download bitmap", e);
             } catch (RemoteService.ServiceUnavailableException e) {
                 throw new CantGetImageException("Couldn't download image due to service availability", e);
             }
 
-            if (null != bytes) {
-                if (null != file && bytes.length < MAX_BITMAP_SIZE) {
-                    OutputStream out = null;
-                    try {
-                        out = new FileOutputStream(file);
-                        out.write(bytes);
-                    } catch (FileNotFoundException e) {
-                        throw new CantGetImageException("It appears that ImageStore is misconfigured, or disk storage is unavailable- can't write to bitmap directory", e);
-                    } catch (IOException e) {
-                        throw new CantGetImageException("Can't store bitmap", e);
-                    } finally {
-                        if (null != out) {
-                            try {
-                                out.close();
-                            } catch (IOException e) {
-                                MPLog.w(LOGTAG, "Problem closing output file", e);
-                            }
+            if (null != file && bytes.length < MAX_BITMAP_SIZE) {
+                OutputStream out = null;
+                try {
+                    out = new FileOutputStream(file);
+                    out.write(bytes);
+                } catch (FileNotFoundException e) {
+                    throw new CantGetImageException("It appears that ImageStore is misconfigured, or disk storage is unavailable- can't write to bitmap directory", e);
+                } catch (IOException e) {
+                    throw new CantGetImageException("Can't store bitmap", e);
+                } finally {
+                    if (null != out) {
+                        try {
+                            out.close();
+                        } catch (IOException e) {
+                            MPLog.w(LOGTAG, "Problem closing output file", e);
                         }
                     }
                 }

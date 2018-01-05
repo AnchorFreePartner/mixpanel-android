@@ -144,12 +144,13 @@ import com.mixpanel.android.util.MPLog;
         return ret;
     }
 
+    @SuppressLint("MissingPermission")
     public Boolean isWifiConnected() {
         Boolean ret = null;
 
         if (PackageManager.PERMISSION_GRANTED == mContext.checkCallingOrSelfPermission(Manifest.permission.ACCESS_NETWORK_STATE)) {
             ConnectivityManager connManager = (ConnectivityManager) this.mContext.getSystemService(Context.CONNECTIVITY_SERVICE);
-            NetworkInfo networkInfo = connManager.getActiveNetworkInfo();
+            NetworkInfo networkInfo = connManager != null ? connManager.getActiveNetworkInfo() : null;
             ret = (networkInfo != null && networkInfo.getType() == ConnectivityManager.TYPE_WIFI && networkInfo.isConnected());
         }
 

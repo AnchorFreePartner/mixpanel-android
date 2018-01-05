@@ -4,32 +4,32 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
-import android.net.Uri;
-
+import android.support.annotation.NonNull;
 import com.mixpanel.android.mpmetrics.MPConfig;
-
-import java.io.BufferedOutputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.EOFException;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
 import java.net.InetAddress;
-import java.net.URL;
-import java.util.Map;
-
-import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.SSLSocketFactory;
+import java.util.concurrent.TimeUnit;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
 
 /**
  * An HTTP utility class for internal use in the Mixpanel library. Not thread-safe.
  */
 public class HttpService implements RemoteService {
 
+    private static final String LOGTAG = "MixpanelAPI.Message";
     private static boolean sIsMixpanelBlocked;
-    private static final int MIN_UNAVAILABLE_HTTP_RESPONSE_CODE = HttpURLConnection.HTTP_INTERNAL_ERROR;
-    private static final int MAX_UNAVAILABLE_HTTP_RESPONSE_CODE = 599;
+    @NonNull private final OkHttpClient okHttpClient;
+
+    public HttpService() {
+        okHttpClient = new OkHttpClient.Builder()
+                .retryOnConnectionFailure(false)
+                .connectTimeout(10L, TimeUnit.SECONDS)
+                .build();
+    }
 
     @Override
     public void checkIsMixpanelBlocked() {
@@ -45,14 +45,14 @@ public class HttpService implements RemoteService {
                     if (sIsMixpanelBlocked) {
                         MPLog.v(LOGTAG, "AdBlocker is enabled. Won't be able to use Mixpanel services.");
                     }
-                } catch (Exception e) {
-                }
+                } catch (Exception ignored) { }
             }
         });
 
         t.start();
     }
 
+    @SuppressLint("MissingPermission")
     @Override
     public boolean isOnline(Context context, OfflineMode offlineMode) {
         if (sIsMixpanelBlocked) return false;
@@ -62,7 +62,7 @@ public class HttpService implements RemoteService {
         try {
             final ConnectivityManager cm =
                     (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
-            final NetworkInfo netInfo = cm.getActiveNetworkInfo();
+            final NetworkInfo netInfo = cm != null ? cm.getActiveNetworkInfo() : null;
             if (netInfo == null) {
                 isOnline = true;
                 MPLog.v(LOGTAG, "A default network has not been set so we cannot be certain whether we are offline");
@@ -90,95 +90,22 @@ public class HttpService implements RemoteService {
         return onOfflineMode;
     }
 
+    @NonNull
     @Override
-    public byte[] performRequest(String endpointUrl, String body, SSLSocketFactory socketFactory) throws ServiceUnavailableException, IOException {
+    public RemoteResponse performRequest(@NonNull final String endpointUrl, @NonNull final String postBody)
+            throws ServiceUnavailableException, IOException {
         MPLog.v(LOGTAG, "Attempting request to " + endpointUrl);
-
-        byte[] response = null;
-
-        // the while(retries) loop is a workaround for a bug in some Android HttpURLConnection
-        // libraries- The underlying library will attempt to reuse stale connections,
-        // meaning the second (or every other) attempt to connect fails with an EOFException.
-        // Apparently this nasty retry logic is the current state of the workaround art.
-        int retries = 0;
-        boolean succeeded = false;
-        while (retries < 3 && !succeeded) {
-            InputStream in = null;
-            OutputStream out = null;
-            BufferedOutputStream bout = null;
-            HttpURLConnection connection = null;
-
-            try {
-                final URL url = new URL(endpointUrl);
-                connection = (HttpURLConnection) url.openConnection();
-                if (null != socketFactory && connection instanceof HttpsURLConnection) {
-                    ((HttpsURLConnection) connection).setSSLSocketFactory(socketFactory);
-                }
-
-                connection.setConnectTimeout(2000);
-                connection.setReadTimeout(10000);
-                if (null != body) {
-                    byte[] bytes = body.getBytes("UTF-8");
-                    connection.setFixedLengthStreamingMode(bytes.length);
-                    connection.setDoOutput(true);
-                    connection.setRequestMethod("POST");
-                    out = connection.getOutputStream();
-                    bout = new BufferedOutputStream(out);
-                    bout.write(bytes);
-                    bout.flush();
-                    bout.close();
-                    bout = null;
-                    out.close();
-                    out = null;
-                }
-                in = connection.getInputStream();
-                response = slurp(in);
-                in.close();
-                in = null;
-                succeeded = true;
-            } catch (final EOFException e) {
-                MPLog.d(LOGTAG, "Failure to connect, likely caused by a known issue with Android lib. Retrying.");
-                retries = retries + 1;
-            } catch (final IOException e) {
-                if (connection != null
-                        && connection.getResponseCode() >= MIN_UNAVAILABLE_HTTP_RESPONSE_CODE
-                        && connection.getResponseCode() <= MAX_UNAVAILABLE_HTTP_RESPONSE_CODE) {
-                    throw new ServiceUnavailableException("Service Unavailable", connection.getHeaderField("Retry-After"));
-                } else {
-                    throw e;
-                }
-            }
-            finally {
-                if (null != bout)
-                    try { bout.close(); } catch (final IOException ignored) { }
-                if (null != out)
-                    try { out.close(); } catch (final IOException ignored) { }
-                if (null != in)
-                    try { in.close(); } catch (final IOException ignored) { }
-                if (null != connection)
-                    connection.disconnect();
-            }
-        }
-        if (retries >= 3) {
-            MPLog.v(LOGTAG, "Could not connect to Mixpanel service after three retries.");
-        }
-        return response;
+        final RequestBody requestBody = RequestBody.create(null, postBody);
+        final Request request = new Request.Builder()
+                .addHeader("X-AF-CLIENT-TS", String.valueOf(System.currentTimeMillis()))
+                .addHeader("X-AF-TEST", MPConfig.DEBUG ? "1" : "0")
+                .url(endpointUrl)
+                .post(requestBody)
+                .build();
+        final Response response = okHttpClient.newCall(request).execute();
+        final ResponseBody body = response.body();
+        final RemoteResponse remoteResponse = new RemoteResponse(response.code(), response.message(), body != null ? body.string() : "");
+        MPLog.d(LOGTAG, remoteResponse.toString());
+        return remoteResponse;
     }
-
-    private static byte[] slurp(final InputStream inputStream)
-            throws IOException {
-        final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-
-        int nRead;
-        byte[] data = new byte[8192];
-
-        while ((nRead = inputStream.read(data, 0, data.length)) != -1) {
-            buffer.write(data, 0, nRead);
-        }
-
-        buffer.flush();
-        return buffer.toByteArray();
-    }
-
-    private static final String LOGTAG = "MixpanelAPI.Message";
 }
