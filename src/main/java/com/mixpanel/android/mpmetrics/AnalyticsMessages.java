@@ -475,7 +475,8 @@ class AnalyticsMessages {
                             }
 
                             logAboutMessageToMixpanel("Posted to " + url + ": \n" + rawMessage);
-                            logAboutMessageToMixpanel("Response was " + response.toString());
+                            logAboutMessageToMixpanel("Response code = " + response.getResponseCode());
+                            logAboutMessageToMixpanel("Response message = " + response.getResponseMessage());
                             break;
                         } catch (final OutOfMemoryError e) {
                             MPLog.e(LOGTAG, "Out of memory when posting to " + url + ".", e);
