@@ -98,7 +98,7 @@ public class HttpService implements RemoteService {
         final RequestBody requestBody = RequestBody.create(null, postBody);
         final Request request = new Request.Builder()
                 .addHeader("X-AF-CLIENT-TS", String.valueOf(System.currentTimeMillis()))
-                .addHeader("X-AF-TEST", MPConfig.DEBUG ? "1" : "0")
+                .addHeader("X_AF_DEBUG", MPConfig.DEBUG ? "1" : "0")
                 .url(endpointUrl)
                 .post(requestBody)
                 .build();
