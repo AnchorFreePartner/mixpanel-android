@@ -7,7 +7,8 @@ public class RemoteResponse {
     @NonNull private final String responseMessage;
     @NonNull private final String responseBody;
 
-    RemoteResponse(final int responseCode, @NonNull final String responseMessage,
+    @SuppressWarnings("WeakerAccess")
+    public RemoteResponse(final int responseCode, @NonNull final String responseMessage,
             @NonNull final String responseBody) {
         this.responseCode = responseCode;
         this.responseMessage = responseMessage;
