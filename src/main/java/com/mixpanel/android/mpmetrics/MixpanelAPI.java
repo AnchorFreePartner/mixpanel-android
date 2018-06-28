@@ -112,7 +112,6 @@ public class MixpanelAPI {
      * String version of the library.
      */
     public static final String VERSION = MPConfig.VERSION;
-    static int sSequenceNumber = 0;
 
     /**
      * Declare a string-valued tweak, and return a reference you can use to read the value of the tweak.
