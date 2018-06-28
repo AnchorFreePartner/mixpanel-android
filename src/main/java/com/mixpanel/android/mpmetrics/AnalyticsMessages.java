@@ -58,11 +58,11 @@ class AnalyticsMessages {
     /**
      * Do not call directly. You should call AnalyticsMessages.getInstance()
      */
-    /* package */ AnalyticsMessages(final Context context) {
+    /* package */ AnalyticsMessages(@NonNull final Context context) {
         mContext = context;
         mConfig = getConfig(context);
         mWorker = createWorker();
-        sequenceNumber = new SequenceNumber(context);
+        sequenceNumber = SequenceNumber.getInstance(context);
     }
 
     ////////////////////////////////////////////////////
