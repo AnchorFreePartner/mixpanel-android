@@ -8,6 +8,7 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.Process;
 import android.os.SystemClock;
+import android.support.annotation.NonNull;
 import android.util.DisplayMetrics;
 import com.mixpanel.android.util.MPLog;
 import com.mixpanel.android.util.RemoteResponse;
@@ -44,23 +45,24 @@ class AnalyticsMessages {
     private static final int FLUSH_QUEUE = 2; // push given JSON message to events DB
     private static final int KILL_WORKER = 5; // Hard-kill the worker thread, discarding all events on the event queue. This is for testing, or disasters.
     private static final int INSTALL_DECIDE_CHECK = 12; // Run this DecideCheck at intervals until it isDestroyed()
-    private static final String LOGTAG = "MixpanelAPI.Messages";
-    private static final Map<Context, AnalyticsMessages> sInstances = new HashMap<>();
-    protected final Context mContext;
-
+    @NonNull private static final String LOGTAG = "MixpanelAPI.Messages";
+    @NonNull private static final Map<Context, AnalyticsMessages> sInstances = new HashMap<>();
+    @NonNull protected final Context mContext;
     /////////////////////////////////////////////////////////
     // For testing, to allow for Mocking.
-    protected final MPConfig mConfig;
+    @NonNull protected final MPConfig mConfig;
+    @NonNull private final SequenceNumber sequenceNumber;
     // Used across thread boundaries
-    private final Worker mWorker;
+    @NonNull private final Worker mWorker;
 
     /**
      * Do not call directly. You should call AnalyticsMessages.getInstance()
      */
-    /* package */ AnalyticsMessages(final Context context) {
+    /* package */ AnalyticsMessages(@NonNull final Context context) {
         mContext = context;
         mConfig = getConfig(context);
         mWorker = createWorker();
+        sequenceNumber = SequenceNumber.getInstance(context);
     }
 
     ////////////////////////////////////////////////////
@@ -543,7 +545,7 @@ class AnalyticsMessages {
                 ret.put("local_time", getLocalTime());
 
                 // For querying together with data from other libraries
-                ret.put("seq_no", MixpanelAPI.sSequenceNumber++);
+                ret.put("seq_no", sequenceNumber.getSequenceNumberAndIncrement());
                 ret.put("platform", "Android");
                 ret.put("af_platform", "android");
                 ret.put(prefix + "os", Build.VERSION.SDK_INT);
