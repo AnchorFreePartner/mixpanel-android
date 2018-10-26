@@ -92,13 +92,11 @@ public class HttpService implements RemoteService {
 
     @NonNull
     @Override
-    public RemoteResponse performRequest(@NonNull final String endpointUrl, @NonNull final String postBody)
-            throws ServiceUnavailableException, IOException {
+    public RemoteResponse performRequest(@NonNull final String endpointUrl, @NonNull final String postBody) throws IOException {
         MPLog.v(LOGTAG, "Attempting request to " + endpointUrl);
         final RequestBody requestBody = RequestBody.create(null, postBody);
-        final Request request = new Request.Builder()
-                .addHeader("X-AF-CLIENT-TS", String.valueOf(System.currentTimeMillis()))
-                .addHeader("X_AF_DEBUG", MPConfig.DEBUG ? "1" : "0")
+        final Request.Builder builderRequest = new Request.Builder();
+        final Request request = fillHeaders(builderRequest)
                 .url(endpointUrl)
                 .post(requestBody)
                 .build();
@@ -107,5 +105,12 @@ public class HttpService implements RemoteService {
         final RemoteResponse remoteResponse = new RemoteResponse(response.code(), response.message(), body != null ? body.string() : "");
         MPLog.d(LOGTAG, remoteResponse.toString());
         return remoteResponse;
+    }
+
+    @NonNull
+    public Request.Builder fillHeaders(@NonNull final Request.Builder builderRequest) {
+        return builderRequest
+                .addHeader("X-AF-CLIENT-TS", String.valueOf(System.currentTimeMillis()))
+                .addHeader("X_AF_DEBUG", MPConfig.DEBUG ? "1" : "0");
     }
 }
