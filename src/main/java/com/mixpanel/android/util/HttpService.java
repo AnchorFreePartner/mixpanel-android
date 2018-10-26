@@ -108,7 +108,7 @@ public class HttpService implements RemoteService {
     }
 
     @NonNull
-    Request.Builder fillHeaders(@NonNull final Request.Builder builderRequest) {
+    public Request.Builder fillHeaders(@NonNull final Request.Builder builderRequest) {
         return builderRequest
                 .addHeader("X-AF-CLIENT-TS", String.valueOf(System.currentTimeMillis()))
                 .addHeader("X_AF_DEBUG", MPConfig.DEBUG ? "1" : "0");
