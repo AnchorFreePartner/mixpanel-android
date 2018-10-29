@@ -22,13 +22,18 @@ public class HttpService implements RemoteService {
 
     private static final String LOGTAG = "MixpanelAPI.Message";
     private static boolean sIsMixpanelBlocked;
+
     @NonNull private final OkHttpClient okHttpClient;
 
     public HttpService() {
-        okHttpClient = new OkHttpClient.Builder()
+       this(new OkHttpClient.Builder()
                 .retryOnConnectionFailure(false)
                 .connectTimeout(10L, TimeUnit.SECONDS)
-                .build();
+                .build());
+    }
+
+    public HttpService(@NonNull final OkHttpClient okHttpClient) {
+        this.okHttpClient = okHttpClient;
     }
 
     @Override
