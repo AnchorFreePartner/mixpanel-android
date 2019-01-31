@@ -7,7 +7,7 @@
 Add Mixpanel and Google Play Services to the `dependencies` section in *app/build.gradle*
 
 ```gradle
-implementation "com.mixpanel.android:mixpanel-android:5.2.1.18"
+implementation "com.github.AnchorFreePartner::mixpanel-android:5.2.1.18"
 implementation "com.google.android.gms:play-services:7.5.0+"
 ```
 
