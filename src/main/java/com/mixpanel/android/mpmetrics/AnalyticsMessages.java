@@ -539,53 +539,10 @@ class AnalyticsMessages {
                 }
             }
 
-            private JSONObject getDefaultEventProperties() throws JSONException {
-                final JSONObject ret = new JSONObject();
-                final String prefix = MPConfig.getSpPrefix();
-                ret.put("local_time", getLocalTime());
-
-                // For querying together with data from other libraries
-                ret.put("seq_no", sequenceNumber.getSequenceNumberAndIncrement());
-                ret.put("platform", "Android");
-                ret.put("af_platform", "android");
-                ret.put(prefix + "os", Build.VERSION.SDK_INT);
-                ret.put(prefix + "os_version", Build.VERSION.RELEASE == null ? "UNKNOWN" : Build.VERSION.RELEASE);
-
-                ret.put(prefix + "manufacturer", Build.MANUFACTURER == null ? "UNKNOWN" : Build.MANUFACTURER);
-                ret.put(prefix + "brand", Build.BRAND == null ? "UNKNOWN" : Build.BRAND);
-                ret.put(prefix + "model", Build.MODEL == null ? "UNKNOWN" : Build.MODEL);
-                try {
-                    ret.put("device_language", Locale.getDefault().getISO3Language().substring(0, 2));
-                } catch (Throwable ignore) { }
-
-                final DisplayMetrics displayMetrics = mSystemInformation.getDisplayMetrics();
-                ret.put(prefix + "screen_dpi", displayMetrics.densityDpi);
-                ret.put(prefix + "screen_height", displayMetrics.heightPixels);
-                ret.put(prefix + "screen_width", displayMetrics.widthPixels);
-
-                final String applicationVersionName = mSystemInformation.getAppVersionName();
-                if (null != applicationVersionName) ret.put("app_version", applicationVersionName);
-
-                final Integer applicationVersionCode = mSystemInformation.getAppVersionCode();
-                if (null != applicationVersionCode) {
-                    ret.put(prefix + "app_release", applicationVersionCode);
-                }
-
-                final String carrier = mSystemInformation.getCurrentNetworkOperator();
-                if (null != carrier) {
-                    ret.put(prefix + "carrier", carrier);
-                }
-
-                ret.put(prefix + "wifi", mSystemInformation.isWifiConnected());
-                ret.put(prefix + "has_nfc", mSystemInformation.hasNFC());
-                ret.put(prefix + "has_telephone", mSystemInformation.hasTelephony());
-                return ret;
-            }
-
             private JSONObject prepareEventObject(final EventDescription eventDescription) throws JSONException {
                 final JSONObject eventObj = new JSONObject();
                 final JSONObject eventProperties = eventDescription.getProperties();
-                final JSONObject sendProperties = getDefaultEventProperties();
+                final JSONObject sendProperties = new JSONObject();
                 long ts = System.currentTimeMillis();
                 if (eventProperties != null) {
                     final Iterator<String> iterator = eventProperties.keys();
