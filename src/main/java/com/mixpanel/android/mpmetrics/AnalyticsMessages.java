@@ -1,7 +1,6 @@
 package com.mixpanel.android.mpmetrics;
 
 import android.content.Context;
-import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
@@ -9,7 +8,6 @@ import android.os.Message;
 import android.os.Process;
 import android.os.SystemClock;
 import android.support.annotation.NonNull;
-import android.util.DisplayMetrics;
 import com.mixpanel.android.util.MPLog;
 import com.mixpanel.android.util.RemoteResponse;
 import com.mixpanel.android.util.RemoteService;
@@ -543,6 +541,7 @@ class AnalyticsMessages {
                 final JSONObject eventObj = new JSONObject();
                 final JSONObject eventProperties = eventDescription.getProperties();
                 final JSONObject sendProperties = new JSONObject();
+                sendProperties.put("seq_no", sequenceNumber.getSequenceNumberAndIncrement());
                 long ts = System.currentTimeMillis();
                 if (eventProperties != null) {
                     final Iterator<String> iterator = eventProperties.keys();
