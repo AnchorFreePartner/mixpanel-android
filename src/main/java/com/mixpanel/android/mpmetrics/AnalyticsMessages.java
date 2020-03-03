@@ -56,11 +56,11 @@ class AnalyticsMessages {
     /**
      * Do not call directly. You should call AnalyticsMessages.getInstance()
      */
-    /* package */ AnalyticsMessages(@NonNull final Context context) {
+    public AnalyticsMessages(@NonNull final Context context) {
         mContext = context;
         mConfig = getConfig(context);
         mWorker = createWorker();
-        sequenceNumber = SequenceNumber.getInstance(context);
+        sequenceNumber = new SequenceNumber(context);
     }
 
     ////////////////////////////////////////////////////
@@ -73,17 +73,7 @@ class AnalyticsMessages {
      * associated with these messages.
      */
     public static AnalyticsMessages getInstance(final Context messageContext) {
-        synchronized (sInstances) {
-            final Context appContext = messageContext.getApplicationContext();
-            AnalyticsMessages ret;
-            if (!sInstances.containsKey(appContext)) {
-                ret = new AnalyticsMessages(appContext);
-                sInstances.put(appContext, ret);
-            } else {
-                ret = sInstances.get(appContext);
-            }
-            return ret;
-        }
+        return new AnalyticsMessages(messageContext);
     }
 
     protected Worker createWorker() {
