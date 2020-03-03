@@ -1287,7 +1287,7 @@ public class MixpanelAPI {
     // non-test client code.
 
     /* package */ AnalyticsMessages getAnalyticsMessages() {
-        return AnalyticsMessages.getInstance(mContext);
+        return new AnalyticsMessages(mContext);
     }
 
     /* package */
