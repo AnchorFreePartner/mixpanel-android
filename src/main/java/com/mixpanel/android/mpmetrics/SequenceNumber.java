@@ -15,7 +15,7 @@ class SequenceNumber {
         sequenceNumber = preferences.getLong(KEY_SEQ_NO + hashCode(), 0L);
     }
 
-    synchronized long getSequenceNumberAndIncrement() {
+    long getSequenceNumberAndIncrement() {
         final long currentSeqNo = sequenceNumber;
         preferences.edit().putLong(KEY_SEQ_NO + hashCode(), ++sequenceNumber).apply();
         return currentSeqNo;
