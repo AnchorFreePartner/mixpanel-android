@@ -8,6 +8,7 @@ import android.os.Message;
 import android.os.Process;
 import android.os.SystemClock;
 import android.support.annotation.NonNull;
+import android.util.Log;
 import com.mixpanel.android.util.MPLog;
 import com.mixpanel.android.util.RemoteResponse;
 import com.mixpanel.android.util.RemoteService;
@@ -547,6 +548,7 @@ class AnalyticsMessages {
                         .replace(" ", "_").replace("-", "_"));
                 eventObj.put("ts", ts);
                 eventObj.put("payload", sendProperties);
+                Log.d(LOGTAG, "Prepared event object: " + eventObj.toString());
                 return eventObj;
             }
         }// AnalyticsMessageHandler
