@@ -8,7 +8,6 @@ import android.os.Message;
 import android.os.Process;
 import android.os.SystemClock;
 import android.support.annotation.NonNull;
-import android.util.Log;
 import com.mixpanel.android.util.MPLog;
 import com.mixpanel.android.util.RemoteResponse;
 import com.mixpanel.android.util.RemoteService;
@@ -57,7 +56,7 @@ class AnalyticsMessages {
     /**
      * Do not call directly. You should call AnalyticsMessages.getInstance()
      */
-    public AnalyticsMessages(@NonNull final Context context, @NonNull final String token) {
+    /*protected*/ AnalyticsMessages(@NonNull final Context context, @NonNull final String token) {
         mContext = context;
         mConfig = getConfig(context);
         mWorker = createWorker();
@@ -65,7 +64,7 @@ class AnalyticsMessages {
     }
 
     /** Only for test purposes */
-    public AnalyticsMessages(@NonNull final Context context) {
+    /*protected*/ AnalyticsMessages(@NonNull final Context context) {
         this(context, "test_token");
     }
 
