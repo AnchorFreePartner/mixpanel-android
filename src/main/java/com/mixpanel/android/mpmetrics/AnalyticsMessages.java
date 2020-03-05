@@ -57,11 +57,16 @@ class AnalyticsMessages {
     /**
      * Do not call directly. You should call AnalyticsMessages.getInstance()
      */
-    public AnalyticsMessages(@NonNull final Context context) {
+    public AnalyticsMessages(@NonNull final Context context, @NonNull final String token) {
         mContext = context;
         mConfig = getConfig(context);
         mWorker = createWorker();
-        sequenceNumber = new SequenceNumber(context);
+        sequenceNumber = new SequenceNumber(context, token);
+    }
+
+    /** Only for test purposes */
+    public AnalyticsMessages(@NonNull final Context context) {
+        this(context, "test_token");
     }
 
     ////////////////////////////////////////////////////
@@ -73,8 +78,8 @@ class AnalyticsMessages {
      * @param messageContext should be the Main Activity of the application
      * associated with these messages.
      */
-    public static AnalyticsMessages getInstance(final Context messageContext) {
-        return new AnalyticsMessages(messageContext);
+    public static AnalyticsMessages getInstance(final Context messageContext, final String token) {
+        return new AnalyticsMessages(messageContext, token);
     }
 
     protected Worker createWorker() {
