@@ -553,7 +553,6 @@ class AnalyticsMessages {
                         .replace(" ", "_").replace("-", "_"));
                 eventObj.put("ts", ts);
                 eventObj.put("payload", sendProperties);
-                Log.d(LOGTAG, "Prepared event object: " + eventObj.toString());
                 return eventObj;
             }
         }// AnalyticsMessageHandler
