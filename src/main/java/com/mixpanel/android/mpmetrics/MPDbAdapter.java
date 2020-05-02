@@ -22,7 +22,7 @@ import org.json.JSONObject;
  */
 /* package */ class MPDbAdapter {
     private static final String LOGTAG = "MixpanelAPI.Database";
-    private static final Map<Context, MPDbAdapter> sInstances = new HashMap<>();
+    private static final Map<String, MPDbAdapter> sInstances = new HashMap<>();
 
     public enum Table {
         EVENTS("events"),
@@ -158,7 +158,7 @@ import org.json.JSONObject;
     }
 
     public MPDbAdapter(Context context, final String token) {
-        this(context, DATABASE_NAME, token);
+        this(context, DATABASE_NAME + "_" + token.hashCode(), token);
     }
 
     public MPDbAdapter(Context context, String dbName, final String token) {
@@ -169,11 +169,11 @@ import org.json.JSONObject;
         synchronized (sInstances) {
             final Context appContext = context.getApplicationContext();
             MPDbAdapter ret;
-            if (!sInstances.containsKey(appContext)) {
+            if (!sInstances.containsKey(token)) {
                 ret = new MPDbAdapter(appContext, token);
-                sInstances.put(appContext, ret);
+                sInstances.put(token, ret);
             } else {
-                ret = sInstances.get(appContext);
+                ret = sInstances.get(token);
             }
             return ret;
         }

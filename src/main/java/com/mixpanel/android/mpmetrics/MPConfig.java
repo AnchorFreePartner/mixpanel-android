@@ -143,11 +143,13 @@ public class MPConfig {
 
     // Instances are safe to store, since they're immutable and always the same.
     public static MPConfig getInstance(Context context, @NonNull final String token) {
-        MPConfig instance = sInstances.get(token);
-        if (null == instance) {
+        MPConfig instance;
+        if (!sInstances.containsKey(token)) {
             final Context appContext = context.getApplicationContext();
             instance = readConfig(appContext);
             sInstances.put(token, instance);
+        } else {
+            instance = sInstances.get(token);
         }
         return instance;
     }
