@@ -7,16 +7,10 @@ import android.graphics.Point;
 import android.os.Build;
 import android.view.Display;
 import android.view.WindowManager;
-
-import com.mixpanel.android.util.RemoteResponse;
 import com.mixpanel.android.util.ImageStore;
 import com.mixpanel.android.util.MPLog;
+import com.mixpanel.android.util.OfflineMode;
 import com.mixpanel.android.util.RemoteService;
-
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -27,8 +21,9 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-
-import javax.net.ssl.SSLSocketFactory;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /* package */ class DecideChecker {
     private static final String LOGTAG = "MixpanelAPI.DChecker";
@@ -60,16 +55,16 @@ import javax.net.ssl.SSLSocketFactory;
         public boolean automaticEvents;
     }
 
-    public DecideChecker(final Context context, final MPConfig config) {
+    public DecideChecker(final Context context, final MPConfig config, final String token) {
         mContext = context;
         mConfig = config;
         mChecks = new HashMap<String, DecideMessages>();
-        mImageStore = createImageStore(context);
+        mImageStore = createImageStore(context, token);
         mSystemInformation = SystemInformation.getInstance(context);
     }
 
-    protected ImageStore createImageStore(final Context context) {
-        return new ImageStore(context, "DecideChecker");
+    protected ImageStore createImageStore(final Context context, final String token) {
+        return new ImageStore(context, "DecideChecker", token);
     }
 
     public void addDecideCheck(final DecideMessages check) {
@@ -103,7 +98,7 @@ import javax.net.ssl.SSLSocketFactory;
     }
 
     private Result runDecideCheck(final String token, final String distinctId, final RemoteService poster)
-        throws RemoteService.ServiceUnavailableException, UnintelligibleMessageException {
+            throws RemoteService.ServiceUnavailableException, UnintelligibleMessageException {
         final String responseString = getDecideResponseFromServer(token, distinctId, poster);
 
         MPLog.v(LOGTAG, "Mixpanel decide server response was:\n" + responseString);
@@ -129,7 +124,8 @@ import javax.net.ssl.SSLSocketFactory;
         return parsedResult;
     }// runDecideCheck
 
-    /* package */ static Result parseDecideResponse(String responseString)
+    /* package */
+    static Result parseDecideResponse(String responseString)
             throws UnintelligibleMessageException {
         JSONObject response;
         final Result ret = new Result();
@@ -223,7 +219,7 @@ import javax.net.ssl.SSLSocketFactory;
         if (null != escapedId) {
             queryBuilder.append("&distinct_id=").append(escapedId);
         }
-        
+
         queryBuilder.append("&properties=");
 
         JSONObject properties = new JSONObject();
@@ -243,7 +239,7 @@ import javax.net.ssl.SSLSocketFactory;
 
         MPLog.v(LOGTAG, "Querying decide server, url: " + url);
 
-        final byte[] response = checkDecide(poster, mContext, url);
+        final byte[] response = checkDecide(poster, mContext, url, mConfig.getOfflineMode());
         if (null == response) {
             return null;
         }
@@ -255,15 +251,15 @@ import javax.net.ssl.SSLSocketFactory;
     }
 
     private Bitmap getNotificationImage(InAppNotification notification, Context context)
-        throws RemoteService.ServiceUnavailableException {
-        String[] urls = {notification.getImage2xUrl(), notification.getImageUrl()};
+            throws RemoteService.ServiceUnavailableException {
+        String[] urls = { notification.getImage2xUrl(), notification.getImageUrl() };
 
         final WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
         final Display display = wm.getDefaultDisplay();
         final int displayWidth = getDisplayWidth(display);
 
         if (notification.getType() == InAppNotification.Type.TAKEOVER && displayWidth >= 720) {
-            urls = new String[]{notification.getImage4xUrl(), notification.getImage2xUrl(), notification.getImageUrl()};
+            urls = new String[] { notification.getImage4xUrl(), notification.getImage2xUrl(), notification.getImageUrl() };
         }
 
         for (String url : urls) {
@@ -289,11 +285,9 @@ import javax.net.ssl.SSLSocketFactory;
         }
     }
 
-    private static byte[] checkDecide(RemoteService poster, Context context, String url)
-        throws RemoteService.ServiceUnavailableException {
-        final MPConfig config = MPConfig.getInstance(context);
-
-        if (!poster.isOnline(context, config.getOfflineMode())) {
+    private static byte[] checkDecide(RemoteService poster, Context context, String url, OfflineMode offlineMode)
+            throws RemoteService.ServiceUnavailableException {
+        if (!poster.isOnline(context, offlineMode)) {
             return null;
         }
 

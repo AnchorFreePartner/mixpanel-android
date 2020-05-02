@@ -139,7 +139,7 @@ public class AutomaticEventsTest extends AndroidTestCase {
         mCleanMixpanelAPI = new MixpanelAPI(getContext(), mMockReferrerPreferences, TOKEN) {
 
             @Override
-        /* package */ PersistentIdentity getPersistentIdentity(final Context context, final Future<SharedPreferences> referrerPreferences, final String token) {
+                /* package */ PersistentIdentity getPersistentIdentity(final Context context, final Future<SharedPreferences> referrerPreferences, final String token) {
                 final String prefsName = "com.mixpanel.android.mpmetrics.MixpanelAPI_" + token;
                 final SharedPreferences ret = context.getSharedPreferences(prefsName, Context.MODE_PRIVATE);
                 ret.edit().clear().commit();
@@ -212,7 +212,7 @@ public class AutomaticEventsTest extends AndroidTestCase {
         int initialCalls = 2;
         mLatch = new CountDownLatch(initialCalls);
         final CountDownLatch secondLatch = new CountDownLatch(initialCalls);
-        final BlockingQueue<String> secondPerformedRequests =  new LinkedBlockingQueue<>();
+        final BlockingQueue<String> secondPerformedRequests = new LinkedBlockingQueue<>();
 
         final HttpService mpSecondPoster = new HttpService() {
             @Override
@@ -237,7 +237,7 @@ public class AutomaticEventsTest extends AndroidTestCase {
             }
         };
 
-        final MPDbAdapter mpSecondDbAdapter = new MPDbAdapter(getContext()) {
+        final MPDbAdapter mpSecondDbAdapter = new MPDbAdapter(getContext(), "TEST_TOKEN") {
             @Override
             public void cleanupEvents(String last_id, Table table, String token, boolean includeAutomaticEvents) {
                 if (token.equalsIgnoreCase(SECOND_TOKEN)) {
@@ -277,7 +277,7 @@ public class AutomaticEventsTest extends AndroidTestCase {
                         final Handler ret = new AnalyticsMessageHandler(thread.getLooper()) {
                             @Override
                             protected DecideChecker createDecideChecker() {
-                                return new DecideChecker(mContext, mConfig) {
+                                return new DecideChecker(mContext, mConfig, "TEST_TOKEN") {
                                     @Override
                                     public void runDecideCheck(String token, RemoteService poster) throws RemoteService.ServiceUnavailableException {
                                         if (mCanRunSecondDecideInstance) {
@@ -306,11 +306,11 @@ public class AutomaticEventsTest extends AndroidTestCase {
         assertTrue(secondLatch.await(MAX_TIMEOUT_POLL, TimeUnit.MILLISECONDS));
 
         Thread.sleep(500);
-        for (int i = 0; i < MPConfig.getInstance(getContext()).getBulkUploadLimit() - initialCalls; i++) {
+        for (int i = 0; i < MPConfig.getInstance(getContext(), "TEST_TOKEN").getBulkUploadLimit() - initialCalls; i++) {
             mCleanMixpanelAPI.track("Track event " + i);
         }
 
-        for (int i = 0; i < MPConfig.getInstance(getContext()).getBulkUploadLimit() - initialCalls; i++) {
+        for (int i = 0; i < MPConfig.getInstance(getContext(), "TEST_TOKEN").getBulkUploadLimit() - initialCalls; i++) {
             assertEquals("Track event " + i, mPerformRequestEvents.poll(MAX_TIMEOUT_POLL, TimeUnit.MILLISECONDS));
         }
 

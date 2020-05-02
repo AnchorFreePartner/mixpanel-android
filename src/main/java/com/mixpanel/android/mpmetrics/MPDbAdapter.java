@@ -1,36 +1,32 @@
 package com.mixpanel.android.mpmetrics;
 
-import java.io.File;
-import java.util.HashMap;
-import java.util.Map;
-
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteException;
 import android.database.sqlite.SQLiteOpenHelper;
-
 import com.mixpanel.android.util.MPLog;
+import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /**
  * SQLite database adapter for MixpanelAPI.
  *
  * <p>Not thread-safe. Instances of this class should only be used
  * by a single thread.
- *
  */
 /* package */ class MPDbAdapter {
     private static final String LOGTAG = "MixpanelAPI.Database";
     private static final Map<Context, MPDbAdapter> sInstances = new HashMap<>();
 
     public enum Table {
-        EVENTS ("events"),
-        PEOPLE ("people");
+        EVENTS("events"),
+        PEOPLE("people");
 
         Table(String name) {
             mTableName = name;
@@ -56,31 +52,31 @@ import com.mixpanel.android.util.MPLog;
     private static final int DATABASE_VERSION = 5;
 
     private static final String CREATE_EVENTS_TABLE =
-       "CREATE TABLE " + Table.EVENTS.getName() + " (_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-        KEY_DATA + " STRING NOT NULL, " +
-        KEY_CREATED_AT + " INTEGER NOT NULL, " +
-        KEY_AUTOMATIC_DATA + " INTEGER DEFAULT 0, " +
-        KEY_TOKEN + " STRING NOT NULL DEFAULT '')";
+            "CREATE TABLE " + Table.EVENTS.getName() + " (_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    KEY_DATA + " STRING NOT NULL, " +
+                    KEY_CREATED_AT + " INTEGER NOT NULL, " +
+                    KEY_AUTOMATIC_DATA + " INTEGER DEFAULT 0, " +
+                    KEY_TOKEN + " STRING NOT NULL DEFAULT '')";
     private static final String CREATE_PEOPLE_TABLE =
-       "CREATE TABLE " + Table.PEOPLE.getName() + " (_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-        KEY_DATA + " STRING NOT NULL, " +
-        KEY_CREATED_AT + " INTEGER NOT NULL, " +
-        KEY_AUTOMATIC_DATA + " INTEGER DEFAULT 0, " +
-        KEY_TOKEN + " STRING NOT NULL DEFAULT '')";
+            "CREATE TABLE " + Table.PEOPLE.getName() + " (_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    KEY_DATA + " STRING NOT NULL, " +
+                    KEY_CREATED_AT + " INTEGER NOT NULL, " +
+                    KEY_AUTOMATIC_DATA + " INTEGER DEFAULT 0, " +
+                    KEY_TOKEN + " STRING NOT NULL DEFAULT '')";
     private static final String EVENTS_TIME_INDEX =
-        "CREATE INDEX IF NOT EXISTS time_idx ON " + Table.EVENTS.getName() +
-        " (" + KEY_CREATED_AT + ");";
+            "CREATE INDEX IF NOT EXISTS time_idx ON " + Table.EVENTS.getName() +
+                    " (" + KEY_CREATED_AT + ");";
     private static final String PEOPLE_TIME_INDEX =
-        "CREATE INDEX IF NOT EXISTS time_idx ON " + Table.PEOPLE.getName() +
-        " (" + KEY_CREATED_AT + ");";
+            "CREATE INDEX IF NOT EXISTS time_idx ON " + Table.PEOPLE.getName() +
+                    " (" + KEY_CREATED_AT + ");";
 
     private final MPDatabaseHelper mDb;
 
     private static class MPDatabaseHelper extends SQLiteOpenHelper {
-        MPDatabaseHelper(Context context, String dbName) {
+        MPDatabaseHelper(Context context, String dbName, final String token) {
             super(context, dbName, null, DATABASE_VERSION);
             mDatabaseFile = context.getDatabasePath(dbName);
-            mConfig = MPConfig.getInstance(context);
+            mConfig = MPConfig.getInstance(context, token);
         }
 
         /**
@@ -161,20 +157,20 @@ import com.mixpanel.android.util.MPLog;
         private final MPConfig mConfig;
     }
 
-    public MPDbAdapter(Context context) {
-        this(context, DATABASE_NAME);
+    public MPDbAdapter(Context context, final String token) {
+        this(context, DATABASE_NAME, token);
     }
 
-    public MPDbAdapter(Context context, String dbName) {
-        mDb = new MPDatabaseHelper(context, dbName);
+    public MPDbAdapter(Context context, String dbName, final String token) {
+        mDb = new MPDatabaseHelper(context, dbName, token);
     }
 
-    public static MPDbAdapter getInstance(Context context) {
+    public static MPDbAdapter getInstance(Context context, final String token) {
         synchronized (sInstances) {
             final Context appContext = context.getApplicationContext();
             MPDbAdapter ret;
-            if (! sInstances.containsKey(appContext)) {
-                ret = new MPDbAdapter(appContext);
+            if (!sInstances.containsKey(appContext)) {
+                ret = new MPDbAdapter(appContext, token);
                 sInstances.put(appContext, ret);
             } else {
                 ret = sInstances.get(appContext);
@@ -186,6 +182,7 @@ import com.mixpanel.android.util.MPLog;
     /**
      * Adds a JSON string representing an event with properties or a person record
      * to the SQLiteDatabase.
+     *
      * @param j the JSON to record
      * @param token token of the project
      * @param table the table to insert into, either "events" or "people"
@@ -241,9 +238,11 @@ import com.mixpanel.android.util.MPLog;
 
     /**
      * Removes events with an _id <= last_id from table
+     *
      * @param last_id the last id to delete
      * @param table the table to remove events from, either "events" or "people"
-     * @param includeAutomaticEvents whether or not automatic events should be included in the cleanup
+     * @param includeAutomaticEvents whether or not automatic events should be included in the
+     * cleanup
      */
     public void cleanupEvents(String last_id, Table table, String token, boolean includeAutomaticEvents) {
         final String tableName = table.getName();
@@ -271,6 +270,7 @@ import com.mixpanel.android.util.MPLog;
 
     /**
      * Removes events before time.
+     *
      * @param time the unix epoch in milliseconds to remove events before
      * @param table the table to remove events from, either "events" or "people"
      */
@@ -295,6 +295,7 @@ import com.mixpanel.android.util.MPLog;
 
     /**
      * Removes automatic events.
+     *
      * @param token token of the project you want to remove automatic events from
      */
     public synchronized void cleanupAutomaticEvents(String token) {
@@ -324,7 +325,6 @@ import com.mixpanel.android.util.MPLog;
     public void deleteDB() {
         mDb.deleteDatabase();
     }
-
 
     /**
      * Returns the data string to send to Mixpanel and the maximum ID of the row that
@@ -413,7 +413,7 @@ import com.mixpanel.android.util.MPLog;
         }
 
         if (last_id != null && data != null) {
-            final String[] ret = {last_id, data, queueCount};
+            final String[] ret = { last_id, data, queueCount };
             return ret;
         }
         return null;
