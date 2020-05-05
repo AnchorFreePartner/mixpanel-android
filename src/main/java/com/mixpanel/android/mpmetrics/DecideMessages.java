@@ -107,7 +107,7 @@ import java.util.Set;
         mUpdatesFromMixpanel.storeVariants(mVariants);
 
         if (mAutomaticEventsEnabled == null && !automaticEvents) {
-            MPDbAdapter.getInstance(mContext).cleanupAutomaticEvents(mToken);
+            MPDbAdapter.getInstance(mContext, mToken).cleanupAutomaticEvents(mToken);
         }
         mAutomaticEventsEnabled = automaticEvents;
 

@@ -193,7 +193,7 @@ import java.util.List;
         return new Edit(visitor, assetsLoaded);
     }
 
-    public ViewSnapshot readSnapshotConfig(JSONObject source) throws BadInstructionsException {
+    public ViewSnapshot readSnapshotConfig(JSONObject source, final String token) throws BadInstructionsException {
         final List<PropertyDescription> properties = new ArrayList<PropertyDescription>();
 
         try {
@@ -212,7 +212,7 @@ import java.util.List;
                 }
             }
 
-            return new ViewSnapshot(mContext, properties, mResourceIds);
+            return new ViewSnapshot(mContext, properties, mResourceIds, token);
         } catch (JSONException e) {
             throw new BadInstructionsException("Can't read snapshot configuration", e);
         } catch (final ClassNotFoundException e) {

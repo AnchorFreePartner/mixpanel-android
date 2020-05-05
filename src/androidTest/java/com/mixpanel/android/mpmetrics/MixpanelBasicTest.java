@@ -111,7 +111,7 @@ public class MixpanelBasicTest extends AndroidTestCase {
 
         final BlockingQueue<JSONObject> messages = new LinkedBlockingQueue<JSONObject>();
 
-        final MPDbAdapter explodingDb = new MPDbAdapter(getContext()) {
+        final MPDbAdapter explodingDb = new MPDbAdapter(getContext(), "TEST_TOKEN") {
             @Override
             public int addJSON(JSONObject message, String token, MPDbAdapter.Table table, boolean isAutomatic) {
                 if (!isAutomatic) {
@@ -159,7 +159,7 @@ public class MixpanelBasicTest extends AndroidTestCase {
     public void testEventOperations() throws JSONException {
         final BlockingQueue<JSONObject> messages = new LinkedBlockingQueue<JSONObject>();
 
-        final MPDbAdapter eventOperationsAdapter = new MPDbAdapter(getContext()) {
+        final MPDbAdapter eventOperationsAdapter = new MPDbAdapter(getContext(), "TEST_TOKEN") {
             @Override
             public int addJSON(JSONObject message, String token, MPDbAdapter.Table table, boolean isAutomatic) {
                 if (!isAutomatic) {
@@ -414,7 +414,7 @@ public class MixpanelBasicTest extends AndroidTestCase {
         final SynchronizedReference<Boolean> isIdentifiedRef = new SynchronizedReference<Boolean>();
         isIdentifiedRef.set(false);
 
-        final MPDbAdapter mockAdapter = new MPDbAdapter(getContext()) {
+        final MPDbAdapter mockAdapter = new MPDbAdapter(getContext(), "TEST_TOKEN") {
             @Override
             public int addJSON(JSONObject message, String token, MPDbAdapter.Table table, boolean isAutomaticEvent) {
                 if (!isAutomaticEvent) {
@@ -498,7 +498,7 @@ public class MixpanelBasicTest extends AndroidTestCase {
             }
 
             @Override
-            protected MPConfig getConfig(Context context) {
+            protected MPConfig getConfig(Context context, String token) {
                 return mockConfig;
             }
 
@@ -774,7 +774,7 @@ public class MixpanelBasicTest extends AndroidTestCase {
             @Override
             public void run() {
 
-                final MPDbAdapter dbMock = new MPDbAdapter(getContext()) {
+                final MPDbAdapter dbMock = new MPDbAdapter(getContext(), "TEST_TOKEN") {
                     @Override
                     public int addJSON(JSONObject message, String token, MPDbAdapter.Table table, boolean isAutomatic) {
                         if (!isAutomatic) {

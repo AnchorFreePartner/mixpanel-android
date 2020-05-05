@@ -48,8 +48,8 @@ import java.util.concurrent.TimeoutException;
 @TargetApi(MPConfig.UI_FEATURES_MIN_API)
 /* package */ class ViewSnapshot {
 
-    public ViewSnapshot(Context context, List<PropertyDescription> properties, ResourceIds resourceIds) {
-        mConfig = MPConfig.getInstance(context);
+    public ViewSnapshot(Context context, List<PropertyDescription> properties, ResourceIds resourceIds, final String token) {
+        mConfig = MPConfig.getInstance(context, token);
         mProperties = properties;
         mResourceIds = resourceIds;
         mMainThreadHandler = new Handler(Looper.getMainLooper());

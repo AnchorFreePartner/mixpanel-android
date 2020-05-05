@@ -49,6 +49,7 @@ class AnalyticsMessages {
     /////////////////////////////////////////////////////////
     // For testing, to allow for Mocking.
     @NonNull protected final MPConfig mConfig;
+    @NonNull protected final String mToken;
     @NonNull private final SequenceNumber sequenceNumber;
     // Used across thread boundaries
     @NonNull private final Worker mWorker;
@@ -58,7 +59,8 @@ class AnalyticsMessages {
      */
     /*protected*/ AnalyticsMessages(@NonNull final Context context, @NonNull final String token) {
         mContext = context;
-        mConfig = getConfig(context);
+        mToken = token;
+        mConfig = getConfig(context, token);
         mWorker = createWorker();
         sequenceNumber = new SequenceNumber(context, token);
     }
@@ -130,12 +132,12 @@ class AnalyticsMessages {
     }
     /////////////////////////////////////////////////////////
 
-    protected MPDbAdapter makeDbAdapter(Context context) {
-        return MPDbAdapter.getInstance(context);
+    protected MPDbAdapter makeDbAdapter(Context context, final String token) {
+        return MPDbAdapter.getInstance(context, token);
     }
 
-    protected MPConfig getConfig(Context context) {
-        return MPConfig.getInstance(context);
+    protected MPConfig getConfig(Context context, final String token) {
+        return MPConfig.getInstance(context, token);
     }
 
     // Sends a message if and only if we are running with Mixpanel Message log enabled.
@@ -298,13 +300,13 @@ class AnalyticsMessages {
             }
 
             protected DecideChecker createDecideChecker() {
-                return new DecideChecker(mContext, mConfig);
+                return new DecideChecker(mContext, mConfig, mToken);
             }
 
             @Override
             public void handleMessage(Message msg) {
                 if (mDbAdapter == null) {
-                    mDbAdapter = makeDbAdapter(mContext);
+                    mDbAdapter = makeDbAdapter(mContext, mToken);
                     mDbAdapter.cleanupEvents(System.currentTimeMillis() - mConfig.getDataExpiration(), MPDbAdapter.Table.EVENTS);
                     mDbAdapter.cleanupEvents(System.currentTimeMillis() - mConfig.getDataExpiration(), MPDbAdapter.Table.PEOPLE);
                 }

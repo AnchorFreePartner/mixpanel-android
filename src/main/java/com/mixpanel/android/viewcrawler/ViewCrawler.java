@@ -16,8 +16,6 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.Process;
 import android.util.JsonWriter;
-import android.util.Pair;
-
 import com.mixpanel.android.mpmetrics.MPConfig;
 import com.mixpanel.android.mpmetrics.MixpanelAPI;
 import com.mixpanel.android.mpmetrics.OnMixpanelTweaksUpdatedListener;
@@ -29,11 +27,6 @@ import com.mixpanel.android.util.ImageStore;
 import com.mixpanel.android.util.JSONUtils;
 import com.mixpanel.android.util.MPLog;
 import com.mixpanel.android.util.MPPair;
-
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -51,8 +44,10 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-
 import javax.net.ssl.SSLSocketFactory;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /**
  * This class is for internal use by the Mixpanel API, and should
@@ -62,7 +57,7 @@ import javax.net.ssl.SSLSocketFactory;
 public class ViewCrawler implements UpdatesFromMixpanel, TrackingDebug, ViewVisitor.OnLayoutErrorListener {
 
     public ViewCrawler(Context context, String token, MixpanelAPI mixpanel, Tweaks tweaks) {
-        mConfig = MPConfig.getInstance(context);
+        mConfig = MPConfig.getInstance(context, token);
 
         mContext = context;
         mEditState = new EditState();
@@ -172,7 +167,7 @@ public class ViewCrawler implements UpdatesFromMixpanel, TrackingDebug, ViewVisi
 
         @Override
         public void run() {
-            if (! mStopped) {
+            if (!mStopped) {
                 final Message message = mMessageThreadHandler.obtainMessage(MESSAGE_CONNECT_TO_EDITOR);
                 mMessageThreadHandler.sendMessage(message);
             }
@@ -299,7 +294,7 @@ public class ViewCrawler implements UpdatesFromMixpanel, TrackingDebug, ViewVisi
 
             final ResourceIds resourceIds = new ResourceReader.Ids(resourcePackage, context);
 
-            mImageStore = new ImageStore(context, "ViewCrawler");
+            mImageStore = new ImageStore(context, "ViewCrawler", token);
             mProtocol = new EditProtocol(context, resourceIds, mImageStore, layoutErrorListener);
             mOriginalEventBindings = new HashSet<MPPair<String, JSONObject>>();
             mEditorChanges = new HashMap<String, MPPair<String, JSONObject>>();
@@ -488,7 +483,7 @@ public class ViewCrawler implements UpdatesFromMixpanel, TrackingDebug, ViewVisi
                 return;
             }
 
-            final String url = MPConfig.getInstance(mContext).getEditorUrl() + mToken;
+            final String url = MPConfig.getInstance(mContext, mToken).getEditorUrl() + mToken;
             try {
                 final Socket sslSocket = socketFactory.createSocket();
                 mEditorConnection = new EditorConnection(new URI(url), new Editor(), sslSocket);
@@ -548,51 +543,51 @@ public class ViewCrawler implements UpdatesFromMixpanel, TrackingDebug, ViewVisi
                 j.beginObject();
                 j.name("type").value("device_info_response");
                 j.name("payload").beginObject();
-                    j.name("device_type").value("Android");
-                    j.name("device_name").value(Build.BRAND + "/" + Build.MODEL);
-                    j.name("scaled_density").value(mScaledDensity);
-                    for (final Map.Entry<String, String> entry : mDeviceInfo.entrySet()) {
-                        j.name(entry.getKey()).value(entry.getValue());
-                    }
+                j.name("device_type").value("Android");
+                j.name("device_name").value(Build.BRAND + "/" + Build.MODEL);
+                j.name("scaled_density").value(mScaledDensity);
+                for (final Map.Entry<String, String> entry : mDeviceInfo.entrySet()) {
+                    j.name(entry.getKey()).value(entry.getValue());
+                }
 
-                    final Map<String, Tweaks.TweakValue> tweakDescs = mTweaks.getAllValues();
-                    j.name("tweaks").beginArray();
-                    for (Map.Entry<String, Tweaks.TweakValue> tweak:tweakDescs.entrySet()) {
-                        final Tweaks.TweakValue desc = tweak.getValue();
-                        final String tweakName = tweak.getKey();
-                        j.beginObject();
-                        j.name("name").value(tweakName);
-                        j.name("minimum").value(desc.getMinimum());
-                        j.name("maximum").value(desc.getMaximum());
-                        switch (desc.type) {
-                            case Tweaks.BOOLEAN_TYPE:
-                                j.name("type").value("boolean");
-                                j.name("value").value(desc.getBooleanValue());
-                                j.name("default").value((Boolean) desc.getDefaultValue());
-                                break;
-                            case Tweaks.DOUBLE_TYPE:
-                                j.name("type").value("number");
-                                j.name("encoding").value("d");
-                                j.name("value").value(desc.getNumberValue().doubleValue());
-                                j.name("default").value(((Number) desc.getDefaultValue()).doubleValue());
-                                break;
-                            case Tweaks.LONG_TYPE:
-                                j.name("type").value("number");
-                                j.name("encoding").value("l");
-                                j.name("value").value(desc.getNumberValue().longValue());
-                                j.name("default").value(((Number) desc.getDefaultValue()).longValue());
-                                break;
-                            case Tweaks.STRING_TYPE:
-                                j.name("type").value("string");
-                                j.name("value").value(desc.getStringValue());
-                                j.name("default").value((String) desc.getDefaultValue());
-                                break;
-                            default:
-                                MPLog.wtf(LOGTAG, "Unrecognized Tweak Type " + desc.type + " encountered.");
-                        }
-                        j.endObject();
+                final Map<String, Tweaks.TweakValue> tweakDescs = mTweaks.getAllValues();
+                j.name("tweaks").beginArray();
+                for (Map.Entry<String, Tweaks.TweakValue> tweak : tweakDescs.entrySet()) {
+                    final Tweaks.TweakValue desc = tweak.getValue();
+                    final String tweakName = tweak.getKey();
+                    j.beginObject();
+                    j.name("name").value(tweakName);
+                    j.name("minimum").value(desc.getMinimum());
+                    j.name("maximum").value(desc.getMaximum());
+                    switch (desc.type) {
+                        case Tweaks.BOOLEAN_TYPE:
+                            j.name("type").value("boolean");
+                            j.name("value").value(desc.getBooleanValue());
+                            j.name("default").value((Boolean) desc.getDefaultValue());
+                            break;
+                        case Tweaks.DOUBLE_TYPE:
+                            j.name("type").value("number");
+                            j.name("encoding").value("d");
+                            j.name("value").value(desc.getNumberValue().doubleValue());
+                            j.name("default").value(((Number) desc.getDefaultValue()).doubleValue());
+                            break;
+                        case Tweaks.LONG_TYPE:
+                            j.name("type").value("number");
+                            j.name("encoding").value("l");
+                            j.name("value").value(desc.getNumberValue().longValue());
+                            j.name("default").value(((Number) desc.getDefaultValue()).longValue());
+                            break;
+                        case Tweaks.STRING_TYPE:
+                            j.name("type").value("string");
+                            j.name("value").value(desc.getStringValue());
+                            j.name("default").value((String) desc.getDefaultValue());
+                            break;
+                        default:
+                            MPLog.wtf(LOGTAG, "Unrecognized Tweak Type " + desc.type + " encountered.");
                     }
-                    j.endArray();
+                    j.endObject();
+                }
+                j.endArray();
                 j.endObject(); // payload
                 j.endObject();
             } catch (final IOException e) {
@@ -607,14 +602,15 @@ public class ViewCrawler implements UpdatesFromMixpanel, TrackingDebug, ViewVisi
         }
 
         /**
-         * Send a snapshot response, with crawled views and screenshot image, to the connected web UI.
+         * Send a snapshot response, with crawled views and screenshot image, to the connected web
+         * UI.
          */
         private void sendSnapshot(JSONObject message) {
             final long startSnapshot = System.currentTimeMillis();
             try {
                 final JSONObject payload = message.getJSONObject("payload");
                 if (payload.has("config")) {
-                    mSnapshot = mProtocol.readSnapshotConfig(payload);
+                    mSnapshot = mProtocol.readSnapshotConfig(payload, mToken);
                     MPLog.v(LOGTAG, "Initializing snapshot with configuration");
                 }
             } catch (final JSONException e) {
@@ -861,7 +857,7 @@ public class ViewCrawler implements UpdatesFromMixpanel, TrackingDebug, ViewVisi
             MPLog.v(LOGTAG, "Editor closed- freeing snapshot");
 
             applyVariantsAndEventBindings();
-            for (final String assetUrl:mEditorAssetUrls) {
+            for (final String assetUrl : mEditorAssetUrls) {
                 mImageStore.deleteStorage(assetUrl);
             }
         }
@@ -870,7 +866,8 @@ public class ViewCrawler implements UpdatesFromMixpanel, TrackingDebug, ViewVisi
          * Reads our JSON-stored edits from memory and submits them to our EditState. Overwrites
          * any existing edits at the time that it is run.
          *
-         * applyVariantsAndEventBindings should be called any time we load new edits, event bindings,
+         * applyVariantsAndEventBindings should be called any time we load new edits, event
+         * bindings,
          * or tweaks from disk or when we receive new edits from the interactive UI editor.
          * Changes and event bindings from our persistent storage and temporary changes
          * received from interactive editing will all be submitted to our EditState, tweaks
@@ -925,7 +922,7 @@ public class ViewCrawler implements UpdatesFromMixpanel, TrackingDebug, ViewVisi
 
                 if (mAppliedTweaks.size() == 0) { // there are no new tweaks, so reset to default values
                     final Map<String, Tweaks.TweakValue> tweakDefaults = mTweaks.getDefaultValues();
-                    for (Map.Entry<String, Tweaks.TweakValue> tweak:tweakDefaults.entrySet()) {
+                    for (Map.Entry<String, Tweaks.TweakValue> tweak : tweakDefaults.entrySet()) {
                         final Tweaks.TweakValue tweakValue = tweak.getValue();
                         final String tweakName = tweak.getKey();
                         if (mTweaks.isNewValue(tweakName, tweakValue.getValue())) {
@@ -937,7 +934,7 @@ public class ViewCrawler implements UpdatesFromMixpanel, TrackingDebug, ViewVisi
             }
 
             {
-                for (MPPair<String, JSONObject> changeInfo:mEditorChanges.values()) {
+                for (MPPair<String, JSONObject> changeInfo : mEditorChanges.values()) {
                     try {
                         final EditProtocol.Edit edit = mProtocol.readEdit(changeInfo.second);
                         newVisitors.add(new MPPair<String, ViewVisitor>(changeInfo.first, edit.visitor));
@@ -1070,15 +1067,15 @@ public class ViewCrawler implements UpdatesFromMixpanel, TrackingDebug, ViewVisi
         private final EditProtocol mProtocol;
         private final ImageStore mImageStore;
 
-        private final Map<String, MPPair<String,JSONObject>> mEditorChanges;
+        private final Map<String, MPPair<String, JSONObject>> mEditorChanges;
         private final List<JSONObject> mEditorTweaks;
         private final List<String> mEditorAssetUrls;
-        private final Map<String, MPPair<String,JSONObject>> mEditorEventBindings;
+        private final Map<String, MPPair<String, JSONObject>> mEditorEventBindings;
         private final Set<VariantChange> mAppliedVisualChanges;
         private final Set<VariantTweak> mAppliedTweaks;
         private final Set<MPPair<Integer, Integer>> mEmptyExperiments;
-        private final Set<MPPair<String,JSONObject>> mPersistentEventBindings;
-        private final Set<MPPair<String,JSONObject>> mOriginalEventBindings;
+        private final Set<MPPair<String, JSONObject>> mPersistentEventBindings;
+        private final Set<MPPair<String, JSONObject>> mOriginalEventBindings;
         private final Set<MPPair<Integer, Integer>> mSeenExperiments;
     }
 

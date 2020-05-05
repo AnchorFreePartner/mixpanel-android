@@ -255,7 +255,7 @@ public class MixpanelAPI {
      * Use MixpanelAPI.getInstance to get an instance.
      */
     MixpanelAPI(final Context context, final Future<SharedPreferences> referrerPreferences, final String token) {
-        this(context, referrerPreferences, token, MPConfig.getInstance(context));
+        this(context, referrerPreferences, token, MPConfig.getInstance(context, token));
     }
 
     /**
@@ -303,7 +303,7 @@ public class MixpanelAPI {
 
         mMessages = getAnalyticsMessages();
 
-        if (mPersistentIdentity.isFirstLaunch(MPDbAdapter.getInstance(mContext).getDatabaseFile().exists())) {
+        if (mPersistentIdentity.isFirstLaunch(MPDbAdapter.getInstance(mContext, mToken).getDatabaseFile().exists())) {
             mPersistentIdentity.setHasLaunched();
         }
 

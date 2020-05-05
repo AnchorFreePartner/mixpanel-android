@@ -5,9 +5,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.support.v4.util.LruCache;
 import android.util.Base64;
-
 import com.mixpanel.android.mpmetrics.MPConfig;
-
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -16,11 +14,10 @@ import java.io.OutputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
-import javax.net.ssl.SSLSocketFactory;
-
 /**
  * ABSOLUTELY NOT thread, or even process safe.
- * Writes and reads files and directories at known paths, and uses a shared instance of MessageDigest.
+ * Writes and reads files and directories at known paths, and uses a shared instance of
+ * MessageDigest.
  */
 public class ImageStore {
     public static class CantGetImageException extends Exception {
@@ -33,14 +30,14 @@ public class ImageStore {
         }
     }
 
-    public ImageStore(Context context, String moduleName) {
-        this(context, DEFAULT_DIRECTORY_PREFIX + moduleName, new HttpService());
+    public ImageStore(Context context, String moduleName, final String token) {
+        this(context, DEFAULT_DIRECTORY_PREFIX + moduleName, new HttpService(), token);
     }
 
-    public ImageStore(Context context, String directoryName, RemoteService poster) {
+    public ImageStore(Context context, String directoryName, RemoteService poster, final String token) {
         mDirectory = context.getDir(directoryName, Context.MODE_PRIVATE);
         mPoster = poster;
-        mConfig = MPConfig.getInstance(context);
+        mConfig = MPConfig.getInstance(context, token);
         MessageDigest useDigest;
         try {
             useDigest = MessageDigest.getInstance("SHA1");

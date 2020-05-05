@@ -5,25 +5,28 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.Bundle;
-
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import com.mixpanel.android.BuildConfig;
 import com.mixpanel.android.util.HttpService;
 import com.mixpanel.android.util.MPLog;
 import com.mixpanel.android.util.OfflineMode;
-
 import com.mixpanel.android.util.RemoteService;
 import java.security.GeneralSecurityException;
-
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
 
-
 /**
- * Stores global configuration options for the Mixpanel library. You can enable and disable configuration
- * options using &lt;meta-data&gt; tags inside of the &lt;application&gt; tag in your AndroidManifest.xml.
- * All settings are optional, and default to reasonable recommended values. Most users will not have to
+ * Stores global configuration options for the Mixpanel library. You can enable and disable
+ * configuration
+ * options using &lt;meta-data&gt; tags inside of the &lt;application&gt; tag in your
+ * AndroidManifest.xml.
+ * All settings are optional, and default to reasonable recommended values. Most users will not
+ * have
+ * to
  * set any options.
  *
  * Mixpanel understands the following options:
@@ -115,7 +118,6 @@ import javax.net.ssl.SSLSocketFactory;
  *     <dt>com.mixpanel.android.MPConfig.NotificationChannelImportance</dt>
  *     <dd>An integer number. Importance of the notification channel (see https://developer.android.com/reference/android/app/NotificationManager.html). Defaults to 3 (IMPORTANCE_DEFAULT). Applicable only for Android 26 and above.</dd>
  * </dl>
- *
  */
 @SuppressWarnings({ "WeakerAccess", "JavaDoc", "unused" })
 public class MPConfig {
@@ -125,8 +127,10 @@ public class MPConfig {
     public static boolean DEBUG = false;
 
     /**
-     * Minimum API level for support of rich UI features, like In-App notifications and dynamic event binding.
-     * Devices running OS versions below this level will still support tracking and push notification features.
+     * Minimum API level for support of rich UI features, like In-App notifications and dynamic
+     * event binding.
+     * Devices running OS versions below this level will still support tracking and push
+     * notification features.
      */
     public static final int UI_FEATURES_MIN_API = 16;
 
@@ -138,15 +142,16 @@ public class MPConfig {
     /* package */ static final int MAX_NOTIFICATION_CACHE_COUNT = 2;
 
     // Instances are safe to store, since they're immutable and always the same.
-    public static MPConfig getInstance(Context context) {
-        synchronized (sInstanceLock) {
-            if (null == sInstance) {
-                final Context appContext = context.getApplicationContext();
-                sInstance = readConfig(appContext);
-            }
+    public static MPConfig getInstance(Context context, @NonNull final String token) {
+        MPConfig instance;
+        if (!sInstances.containsKey(token)) {
+            final Context appContext = context.getApplicationContext();
+            instance = readConfig(appContext);
+            sInstances.put(token, instance);
+        } else {
+            instance = sInstances.get(token);
         }
-
-        return sInstance;
+        return instance;
     }
 
     /**
@@ -318,30 +323,30 @@ public class MPConfig {
 
         MPLog.v(LOGTAG,
                 "Mixpanel (" + VERSION + ") configured with:\n" +
-                "    AutoShowMixpanelUpdates " + getAutoShowMixpanelUpdates() + "\n" +
-                "    BulkUploadLimit " + getBulkUploadLimit() + "\n" +
-                "    FlushInterval " + getFlushInterval() + "\n" +
-                "    DataExpiration " + getDataExpiration() + "\n" +
-                "    MinimumDatabaseLimit " + getMinimumDatabaseLimit() + "\n" +
-                "    DisableAppOpenEvent " + getDisableAppOpenEvent() + "\n" +
-                "    DisableViewCrawler " + getDisableViewCrawler() + "\n" +
-                "    DisableGestureBindingUI " + getDisableGestureBindingUI() + "\n" +
-                "    DisableEmulatorBindingUI " + getDisableEmulatorBindingUI() + "\n" +
-                "    EnableDebugLogging " + DEBUG + "\n" +
-                "    TestMode " + getTestMode() + "\n" +
-                "    EventsEndpoint " + getEventsEndpoint() + "\n" +
-                "    PeopleEndpoint " + getPeopleEndpoint() + "\n" +
-                "    DecideEndpoint " + getDecideEndpoint() + "\n" +
-                "    EditorUrl " + getEditorUrl() + "\n" +
-                "    ImageCacheMaxMemoryFactor " + getImageCacheMaxMemoryFactor() + "\n" +
-                "    DisableDecideChecker " + getDisableDecideChecker() + "\n" +
-                "    IgnoreInvisibleViewsEditor " + getIgnoreInvisibleViewsEditor() + "\n" +
-                "    NotificationDefaults " + getNotificationDefaults() + "\n" +
-                "    MinimumSessionDuration: " + getMinimumSessionDuration() + "\n" +
-                "    SessionTimeoutDuration: " + getSessionTimeoutDuration() + "\n" +
-                "    NotificationChannelId: " + getNotificationChannelId() + "\n" +
-                "    NotificationChannelName: " + getNotificationChannelName() + "\n" +
-                "    NotificationChannelImportance: " + getNotificationChannelImportance()
+                        "    AutoShowMixpanelUpdates " + getAutoShowMixpanelUpdates() + "\n" +
+                        "    BulkUploadLimit " + getBulkUploadLimit() + "\n" +
+                        "    FlushInterval " + getFlushInterval() + "\n" +
+                        "    DataExpiration " + getDataExpiration() + "\n" +
+                        "    MinimumDatabaseLimit " + getMinimumDatabaseLimit() + "\n" +
+                        "    DisableAppOpenEvent " + getDisableAppOpenEvent() + "\n" +
+                        "    DisableViewCrawler " + getDisableViewCrawler() + "\n" +
+                        "    DisableGestureBindingUI " + getDisableGestureBindingUI() + "\n" +
+                        "    DisableEmulatorBindingUI " + getDisableEmulatorBindingUI() + "\n" +
+                        "    EnableDebugLogging " + DEBUG + "\n" +
+                        "    TestMode " + getTestMode() + "\n" +
+                        "    EventsEndpoint " + getEventsEndpoint() + "\n" +
+                        "    PeopleEndpoint " + getPeopleEndpoint() + "\n" +
+                        "    DecideEndpoint " + getDecideEndpoint() + "\n" +
+                        "    EditorUrl " + getEditorUrl() + "\n" +
+                        "    ImageCacheMaxMemoryFactor " + getImageCacheMaxMemoryFactor() + "\n" +
+                        "    DisableDecideChecker " + getDisableDecideChecker() + "\n" +
+                        "    IgnoreInvisibleViewsEditor " + getIgnoreInvisibleViewsEditor() + "\n" +
+                        "    NotificationDefaults " + getNotificationDefaults() + "\n" +
+                        "    MinimumSessionDuration: " + getMinimumSessionDuration() + "\n" +
+                        "    SessionTimeoutDuration: " + getSessionTimeoutDuration() + "\n" +
+                        "    NotificationChannelId: " + getNotificationChannelId() + "\n" +
+                        "    NotificationChannelName: " + getNotificationChannelName() + "\n" +
+                        "    NotificationChannelImportance: " + getNotificationChannelImportance()
         );
     }
 
@@ -360,7 +365,9 @@ public class MPConfig {
         return mDataExpiration;
     }
 
-    public int getMinimumDatabaseLimit() { return mMinimumDatabaseLimit; }
+    public int getMinimumDatabaseLimit() {
+        return mMinimumDatabaseLimit;
+    }
 
     public boolean getDisableGestureBindingUI() {
         return mDisableGestureBindingUI;
@@ -378,7 +385,9 @@ public class MPConfig {
         return mDisableViewCrawler;
     }
 
-    public String[] getDisableViewCrawlerForProjects() { return mDisableViewCrawlerForProjects; }
+    public String[] getDisableViewCrawlerForProjects() {
+        return mDisableViewCrawlerForProjects;
+    }
 
     public boolean getTestMode() {
         return mTestMode;
@@ -485,7 +494,8 @@ public class MPConfig {
     ///////////////////////////////////////////////
 
     // Package access for testing only- do not call directly in library code
-    /* package */ static MPConfig readConfig(Context appContext) {
+    /* package */
+    static MPConfig readConfig(Context appContext) {
         final String packageName = appContext.getPackageName();
         try {
             final ApplicationInfo appInfo = appContext.getPackageManager().getApplicationInfo(packageName, PackageManager.GET_META_DATA);
@@ -533,7 +543,6 @@ public class MPConfig {
     private RemoteService mRemoteService;
     private OfflineMode mOfflineMode;
 
-    private static MPConfig sInstance;
-    private static final Object sInstanceLock = new Object();
+    private static Map<String, MPConfig> sInstances = new ConcurrentHashMap<>();
     private static final String LOGTAG = "MixpanelAPI.Conf";
 }
